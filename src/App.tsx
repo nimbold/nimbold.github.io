@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -129,6 +129,119 @@ const projectScreenshots = {
   lifexp: { dark: lifeXpDark, light: lifeXpLight },
 } as const
 
+function LivingField() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const context = canvas?.getContext('2d')
+    if (!canvas || !context) return
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const pointer = { x: -1000, y: -1000 }
+    let width = 0
+    let height = 0
+    let pixelRatio = 1
+    let scrollOffset = window.scrollY
+    let frame = 0
+
+    const render = (time: number) => {
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+      context.clearRect(0, 0, width, height)
+
+      const ambient = context.createRadialGradient(width * .62, height * .39, 0, width * .62, height * .39, width * .74)
+      ambient.addColorStop(0, 'rgba(255, 255, 255, .76)')
+      ambient.addColorStop(.54, 'rgba(222, 234, 247, .22)')
+      ambient.addColorStop(1, 'rgba(196, 218, 238, 0)')
+      context.fillStyle = ambient
+      context.fillRect(0, 0, width, height)
+
+      const columns = 11
+      const rows = 15
+      const timePhase = prefersReducedMotion ? 0 : time * .00055
+      const scrollPhase = scrollOffset * .004
+
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const index = row * columns + column
+          const seed = Math.sin(index * 21.71) * .5 + .5
+          const baseX = width * (.09 + column * .082) + Math.sin(row * 1.38 + column * .81) * 6
+          const baseY = height * (.10 + row * .061) + Math.cos(column * 1.14 + row * .67) * 8
+          const dx = baseX - pointer.x
+          const dy = baseY - pointer.y
+          const distance = Math.hypot(dx, dy)
+          const influence = Math.max(0, 1 - distance / Math.max(width * .42, 1))
+          const direction = Math.atan2(dy, dx)
+          const drift = prefersReducedMotion ? 0 : Math.sin(timePhase + index * .38 + scrollPhase) * (1.6 + seed * 2.4)
+          const push = influence * (18 + seed * 18)
+          const x = baseX + Math.cos(direction) * push + Math.cos(timePhase * .72 + row) * drift
+          const y = baseY + Math.sin(direction) * push + Math.sin(timePhase * .64 + column) * drift
+          const radius = 2.3 + seed * 3.8 + influence * 5.5
+          const stretch = 1 + influence * 1.7
+          const tint = influence > .3 ? `rgba(254, 97, 56, ${.42 + influence * .42})` : `rgba(35, 48, 64, ${.24 + seed * .34})`
+
+          context.save()
+          context.translate(x, y)
+          context.rotate(direction + Math.sin(timePhase + index) * .16)
+          context.fillStyle = tint
+          context.beginPath()
+          context.ellipse(0, 0, radius * stretch, radius / Math.sqrt(stretch), 0, 0, Math.PI * 2)
+          context.fill()
+          context.restore()
+        }
+      }
+    }
+
+    const draw = (time: number) => {
+      render(time)
+      frame = window.requestAnimationFrame(draw)
+    }
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect()
+      width = Math.max(1, rect.width)
+      height = Math.max(1, rect.height)
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width = Math.round(width * pixelRatio)
+      canvas.height = Math.round(height * pixelRatio)
+      render(performance.now())
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      pointer.x = event.clientX - rect.left
+      pointer.y = event.clientY - rect.top
+    }
+
+    const onPointerLeave = () => {
+      pointer.x = -width
+      pointer.y = height * .5
+    }
+
+    const onScroll = () => {
+      scrollOffset = window.scrollY
+    }
+
+    const observer = new ResizeObserver(resize)
+    observer.observe(canvas)
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
+    window.addEventListener('scroll', onScroll, { passive: true })
+    canvas.addEventListener('pointerleave', onPointerLeave)
+    resize()
+    if (!prefersReducedMotion) frame = window.requestAnimationFrame(draw)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('scroll', onScroll)
+      canvas.removeEventListener('pointerleave', onPointerLeave)
+      window.cancelAnimationFrame(frame)
+    }
+  }, [])
+
+  return <canvas ref={canvasRef} className="living-field" aria-hidden="true" />
+}
+
 function ProjectVisual({ project, onPreview }: { project: Project; onPreview: () => void }) {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const image = projectScreenshots[project.visual][theme]
@@ -231,11 +344,11 @@ function App() {
           </div>
         </div>
         <div className="hero-art reveal-delay" aria-hidden="true">
-          <div className="art-frame">
-            <span className="art-index">01 / 03</span>
-            <div className="art-line line-a" /><div className="art-line line-b" /><div className="art-line line-c" />
-            <div className="art-mark">N</div>
-            <span className="art-caption">DESIGNING FOR<br />MOMENTUM</span>
+          <div className="art-frame interactive-art">
+            <div className="art-wash" />
+            <LivingField />
+            <span className="art-index">FIELD / 01</span>
+            <span className="art-caption">MOVE / SCROLL<br />TO DISTORT</span>
           </div>
         </div>
         <a className="scroll-cue" href="#work"><span>Scroll to explore</span><ArrowDownRight size={17} /></a>
