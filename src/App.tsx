@@ -20,6 +20,7 @@ type Project = {
   category: 'Systems' | 'Product'
   description: string
   technologies: string[]
+  highlights: string[]
   href: string
   visual: 'firelink' | 'companion' | 'lifexp'
 }
@@ -30,8 +31,9 @@ const projects: Project[] = [
     label: 'Desktop application',
     category: 'Systems',
     description:
-      'A focused download manager that brings high-performance transfers, media extraction, and resilient scheduling into one native desktop experience.',
-    technologies: ['Rust', 'Tauri', 'React', 'TypeScript'],
+      'A cross-platform native download manager for fast transfers, media capture, scheduling, and browser-to-desktop handoff.',
+    technologies: ['Rust', 'Tauri', 'React', 'TypeScript', 'SQLite'],
+    highlights: ['Segmented aria2 transfers', 'yt-dlp and FFmpeg media flows', 'Persistent queues and scheduling'],
     href: 'https://github.com/nimbold/Firelink',
     visual: 'firelink',
   },
@@ -40,8 +42,9 @@ const projects: Project[] = [
     label: 'Browser extension',
     category: 'Systems',
     description:
-      'A security-conscious browser bridge that hands downloads and explicit media requests to Firelink through an authenticated local connection.',
-    technologies: ['WebExtensions', 'JavaScript', 'Manifest V3'],
+      'The secure browser companion for Firelink, turning browser downloads, selected links, and media requests into reviewed desktop tasks.',
+    technologies: ['WebExtensions', 'JavaScript', 'Manifest V3', 'HMAC-SHA256'],
+    highlights: ['Firefox and Chromium support', 'Authenticated localhost handoff', 'Safe browser-download fallback'],
     href: 'https://github.com/nimbold/Firelink-Extension',
     visual: 'companion',
   },
@@ -50,8 +53,9 @@ const projects: Project[] = [
     label: 'Personal product',
     category: 'Product',
     description:
-      'A gamified task tracker where everyday quests turn into experience, attributes, trophies, and a personal activity chronicle.',
-    technologies: ['Python', 'Tkinter', 'SQLite'],
+      'A lightweight desktop productivity tool that gives everyday tasks an RPG-style loop of quests, XP, attributes, and milestones.',
+    technologies: ['Python', 'Tkinter', 'JSON persistence'],
+    highlights: ['Five core character attributes', 'Trophies and level milestones', 'Daily, weekly, and monthly chronicles'],
     href: 'https://github.com/nimbold/LifeXP',
     visual: 'lifexp',
   },
@@ -173,6 +177,9 @@ function App() {
                 <div className="project-topline"><span>{project.label}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
                 <h3>{project.title}</h3>
                 <p>{project.description}</p>
+                <ul className="project-highlights" aria-label={`${project.title} highlights`}>
+                  {project.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}
+                </ul>
                 <div className="project-footer">
                   <ul>{project.technologies.map((tech) => <li key={tech}>{tech}</li>)}</ul>
                   <a className="round-link" href={project.href} target="_blank" rel="noreferrer" aria-label={`View ${project.title} on GitHub`}><ArrowUpRight size={18} /></a>
@@ -187,8 +194,8 @@ function App() {
       <section className="about section" id="about">
         <div className="about-intro"><p className="eyebrow"><span /> A little about me</p><h2>Curious by default.<br /><em>Intentional</em> in detail.</h2></div>
         <div className="about-copy">
-          <p className="large-copy">I’m an independent developer focused on making software that feels clear, calm, and capable. From native desktop tools to browser extensions, I care about the full path from a small interaction to a dependable system.</p>
-          <p>My work is guided by a simple belief: the best tools earn their place by making a difficult thing feel obvious.</p>
+          <p className="large-copy">I’m an independent developer focused on making software that feels clear, calm, and capable. My current work ranges from native Rust and Tauri applications to secure browser integrations and focused Python desktop products.</p>
+          <p>Across every project, I care about the full path from a small interaction to a dependable system: the interface, state, storage, security boundaries, packaging, and the details people feel.</p>
           <a className="text-link" href="#contact">Let’s work together <ArrowDownRight size={16} /></a>
         </div>
         <div className="capabilities">
