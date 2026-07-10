@@ -142,7 +142,7 @@ function LivingField() {
     let width = 0
     let height = 0
     let pixelRatio = 1
-    let particles: Array<{ baseX: number; baseY: number; x: number; y: number; vx: number; vy: number; radius: number; phase: number }> = []
+    let particles: Array<{ baseX: number; baseY: number; x: number; y: number; vx: number; vy: number; radius: number; phase: number; heat: number; kind: 'ring' | 'trail' | 'ash' }> = []
     let scrollVelocity = 0
     let lastScroll = window.scrollY
     let lastScrollTime = performance.now()
@@ -151,15 +151,12 @@ function LivingField() {
     let frame = 0
 
     const buildParticles = () => {
-      const columns = 12
-      const rows = 17
-      particles = Array.from({ length: columns * rows }, (_, index) => {
-        const row = Math.floor(index / columns)
-        const column = index % columns
+      const centerX = width * .53
+      const centerY = height * .32
+      const ringRadius = Math.min(width * .31, height * .25)
+      const ringRatio = .84
+      const nextParticle = (baseX: number, baseY: number, index: number, kind: 'ring' | 'trail' | 'ash', heat: number) => {
         const seed = Math.sin(index * 21.71) * .5 + .5
-        const baseX = width * (.08 + column * .077) + Math.sin(row * 1.38 + column * .81) * 7
-        const baseY = height * (.08 + row * .055) + Math.cos(column * 1.14 + row * .67) * 8
-
         return {
           baseX,
           baseY,
@@ -167,10 +164,75 @@ function LivingField() {
           y: baseY,
           vx: 0,
           vy: 0,
-          radius: 1.8 + seed * 3.3,
+          radius: 1.35 + seed * 2.6 + (kind === 'ash' ? 0 : .5),
           phase: index * .61 + seed * Math.PI,
+          heat,
+          kind,
         }
-      })
+      }
+
+      const sigilParticles = []
+      const ringCount = 198
+      for (let index = 0; index < ringCount; index += 1) {
+        const seed = Math.sin(index * 21.71) * .5 + .5
+        const angle = index / ringCount * Math.PI * 2
+        const scar = Math.sin(angle * 9 + seed * 7) * ringRadius * .055
+        const radius = ringRadius + scar + (seed - .5) * ringRadius * .07
+        sigilParticles.push(nextParticle(
+          centerX + Math.cos(angle) * radius,
+          centerY + Math.sin(angle) * radius * ringRatio,
+          index,
+          'ring',
+          .14 + seed * .58,
+        ))
+      }
+
+      const flareCount = 62
+      for (let index = 0; index < flareCount; index += 1) {
+        const particleIndex = ringCount + index
+        const seed = Math.sin(particleIndex * 21.71) * .5 + .5
+        const angle = (index / flareCount * Math.PI * 2) - Math.PI * .5
+        const flare = 10 + seed * 30 + Math.max(0, Math.cos(angle)) * 13
+        sigilParticles.push(nextParticle(
+          centerX + Math.cos(angle) * (ringRadius + flare),
+          centerY + Math.sin(angle) * (ringRadius * ringRatio + flare * .55),
+          particleIndex,
+          'ring',
+          .1 + seed * .42,
+        ))
+      }
+
+      const trailCount = 118
+      for (let index = 0; index < trailCount; index += 1) {
+        const particleIndex = ringCount + flareCount + index
+        const seed = Math.sin(particleIndex * 21.71) * .5 + .5
+        const progress = index / (trailCount - 1)
+        const trailWidth = width * (.009 + (1 - progress) * .021)
+        sigilParticles.push(nextParticle(
+          centerX + Math.sin(index * 1.83) * trailWidth + (seed - .5) * trailWidth,
+          centerY + ringRadius * ringRatio + progress * height * .47,
+          particleIndex,
+          'trail',
+          .1 + seed * .52,
+        ))
+      }
+
+      const ashCount = 58
+      for (let index = 0; index < ashCount; index += 1) {
+        const particleIndex = ringCount + flareCount + trailCount + index
+        const seed = Math.sin(particleIndex * 21.71) * .5 + .5
+        const angle = seed * Math.PI * 2 + index * .43
+        const distance = ringRadius * (1.18 + seed * .68)
+        sigilParticles.push(nextParticle(
+          centerX + Math.cos(angle) * distance,
+          centerY + Math.sin(angle) * distance * ringRatio,
+          particleIndex,
+          'ash',
+          .05 + seed * .24,
+        ))
+      }
+
+      particles = sigilParticles
     }
 
     const render = (time: number) => {
@@ -199,7 +261,8 @@ function LivingField() {
         const flowY = pointer.vy * strength * .19 + normalY * (pointerForce * strength + wave * 130)
         const scrollWave = Math.sin(particle.baseX * .043 + particle.phase + time * .002) * scrollVelocity * .19
         const accelerationX = springX - particle.vx * 8.2 + flowX + drift
-        const accelerationY = springY - particle.vy * 8.2 + flowY + scrollWave
+        const emberLift = Math.sin(time * .0026 + particle.phase) * (particle.heat * 9 + 2)
+        const accelerationY = springY - particle.vy * 8.2 + flowY + scrollWave - emberLift
 
         if (!prefersReducedMotion) {
           particle.vx += accelerationX * delta
@@ -209,17 +272,28 @@ function LivingField() {
         }
 
         const speed = Math.min(Math.hypot(particle.vx, particle.vy), 360)
-        const stretch = 1 + speed / 520 + strength * .55
-        const tint = strength > .22
-          ? `rgba(254, 97, 56, ${.38 + strength * .45})`
-          : `rgba(27, 26, 25, ${.27 + particle.radius * .055})`
+        const flicker = .5 + Math.sin(time * .008 + particle.phase) * .5
+        const stretch = 1 + speed / 520 + strength * .55 + flicker * .16
+        const heat = Math.min(1, particle.heat + strength * .75 + flicker * .15)
+        const tint = heat > .62
+          ? `rgba(242, 91, 44, ${.36 + heat * .52})`
+          : heat > .38
+            ? `rgba(143, 58, 34, ${.32 + heat * .5})`
+            : `rgba(31, 27, 24, ${.28 + particle.radius * .065})`
 
         context.save()
         context.translate(particle.x, particle.y)
-        context.rotate(Math.atan2(particle.vy, particle.vx))
+        context.rotate(Math.atan2(particle.vy, particle.vx) + (particle.kind === 'trail' ? 0 : Math.PI * .5))
         context.fillStyle = tint
+        if (heat > .7) {
+          context.shadowColor = 'rgba(254, 97, 56, .42)'
+          context.shadowBlur = 5 + heat * 7
+        }
         context.beginPath()
-        context.ellipse(0, 0, particle.radius * stretch, particle.radius / stretch, 0, 0, Math.PI * 2)
+        context.moveTo(0, -particle.radius * stretch * 1.5)
+        context.quadraticCurveTo(particle.radius * stretch, -particle.radius * .1, particle.radius * .55, particle.radius * stretch)
+        context.quadraticCurveTo(0, particle.radius * stretch * 1.28, -particle.radius * .55, particle.radius * stretch)
+        context.quadraticCurveTo(-particle.radius * stretch, -particle.radius * .1, 0, -particle.radius * stretch * 1.5)
         context.fill()
         context.restore()
       })
