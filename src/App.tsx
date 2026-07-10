@@ -29,6 +29,11 @@ type Project = {
   description: string
   technologies: string[]
   highlights: string[]
+  preview: {
+    overview: string
+    features: string[]
+    facts: { label: string; value: string }[]
+  }
   href: string
   visual: 'firelink' | 'companion' | 'lifexp'
 }
@@ -42,6 +47,20 @@ const projects: Project[] = [
       'A cross-platform native download manager for fast transfers, media capture, scheduling, and browser-to-desktop handoff.',
     technologies: ['Rust', 'Tauri', 'React', 'TypeScript', 'SQLite'],
     highlights: ['Segmented aria2 transfers', 'yt-dlp and FFmpeg media flows', 'Persistent queues and scheduling'],
+    preview: {
+      overview: 'A fast, focused desktop download manager for macOS, Windows, and Linux. Firelink combines a native Rust and Tauri backend with a React interface to make transfers, media extraction, queues, and file placement feel deliberate.',
+      features: [
+        'Segmented aria2 transfers with retries, connection controls, and speed limits.',
+        'yt-dlp, FFmpeg, and Deno-powered media downloads with live progress and ETA.',
+        'Persistent queues, scheduling rules, bulk actions, and per-download placement.',
+        'Secure browser handoff with pairing, signed local requests, and Add-window review.',
+      ],
+      facts: [
+        { label: 'Platforms', value: 'macOS · Windows · Linux' },
+        { label: 'Architecture', value: 'Rust + Tauri' },
+        { label: 'Storage', value: 'SQLite' },
+      ],
+    },
     href: 'https://github.com/nimbold/Firelink',
     visual: 'firelink',
   },
@@ -53,6 +72,20 @@ const projects: Project[] = [
       'The secure browser companion for Firelink, turning browser downloads, selected links, and media requests into reviewed desktop tasks.',
     technologies: ['WebExtensions', 'JavaScript', 'Manifest V3', 'HMAC-SHA256'],
     highlights: ['Firefox and Chromium support', 'Authenticated localhost handoff', 'Safe browser-download fallback'],
+    preview: {
+      overview: 'The browser bridge for Firelink. It turns browser downloads, selected links, and explicit media requests into reviewed desktop tasks while keeping control in the browser when Firelink cannot accept a handoff.',
+      features: [
+        'Captures ordinary downloads, selected links, and explicit media-fetch requests.',
+        'Supports Firefox and Chromium browsers through a Manifest V3 extension.',
+        'Signs local requests with HMAC-SHA256 and verifies the desktop app before trust.',
+        'Falls back safely to the browser download when Firelink is closed or declines a request.',
+      ],
+      facts: [
+        { label: 'Browsers', value: 'Firefox + Chromium' },
+        { label: 'Protocol', value: 'Signed localhost handoff' },
+        { label: 'Privacy', value: 'No remote service' },
+      ],
+    },
     href: 'https://github.com/nimbold/Firelink-Extension',
     visual: 'companion',
   },
@@ -64,6 +97,20 @@ const projects: Project[] = [
       'A lightweight desktop productivity tool that gives everyday tasks an RPG-style loop of quests, XP, attributes, and milestones.',
     technologies: ['Python', 'Tkinter', 'JSON persistence'],
     highlights: ['Five core character attributes', 'Trophies and level milestones', 'Daily, weekly, and monthly chronicles'],
+    preview: {
+      overview: 'A lightweight desktop productivity application that turns everyday tasks into an RPG-style character progression loop. Complete quests, gain XP, grow attributes, unlock trophies, and look back on consistent effort.',
+      features: [
+        'Links quests to Strength, Agility, Intelligence, Charisma, and Vitality.',
+        'Lets you batch add, edit, complete, or abandon active quests.',
+        'Unlocks trophies at levels 5, 10, 25, 50, and 100.',
+        'Visualizes daily, weekly, and monthly activity through chronicles.',
+      ],
+      facts: [
+        { label: 'Runtime', value: 'Python + Tkinter' },
+        { label: 'State', value: 'Local JSON persistence' },
+        { label: 'Style', value: 'Customizable themes' },
+      ],
+    },
     href: 'https://github.com/nimbold/LifeXP',
     visual: 'lifexp',
   },
@@ -82,7 +129,7 @@ const projectScreenshots = {
   lifexp: { dark: lifeXpDark, light: lifeXpLight },
 } as const
 
-function ProjectVisual({ project }: { project: Project }) {
+function ProjectVisual({ project, onPreview }: { project: Project; onPreview: () => void }) {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const image = projectScreenshots[project.visual][theme]
 
@@ -99,6 +146,9 @@ function ProjectVisual({ project }: { project: Project }) {
         <span>Product preview</span>
         <span>{theme} theme</span>
       </div>
+      <button className="preview-trigger" type="button" onClick={onPreview}>
+        Quick preview <ArrowUpRight size={16} />
+      </button>
       <div className="theme-switch" role="group" aria-label={`${project.title} preview theme`}>
         <button
           className={theme === 'dark' ? 'active' : ''}
@@ -127,12 +177,29 @@ function App() {
   const [filter, setFilter] = useState<'All' | Project['category']>('All')
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [previewProject, setPreviewProject] = useState<Project | null>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    if (!previewProject) return
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewProject(null)
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [previewProject])
 
   const visibleProjects = filter === 'All' ? projects : projects.filter((project) => project.category === filter)
 
@@ -186,7 +253,7 @@ function App() {
         <div className="project-grid">
           {visibleProjects.map((project, index) => (
             <article className={`project-card project-${project.visual}`} key={project.title} style={{ '--delay': `${index * 85}ms` } as React.CSSProperties}>
-              <ProjectVisual project={project} />
+              <ProjectVisual project={project} onPreview={() => setPreviewProject(project)} />
               <div className="project-content">
                 <div className="project-topline"><span>{project.label}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
                 <h3>{project.title}</h3>
@@ -248,6 +315,34 @@ function App() {
         <p>© {new Date().getFullYear()} NimBold. Built with focus.</p>
         <a href="#top">Back to top <ArrowUpRight size={14} /></a>
       </footer>
+
+      {previewProject && (
+        <div className="preview-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setPreviewProject(null) }}>
+          <section className="project-preview" role="dialog" aria-modal="true" aria-labelledby="preview-title">
+            <button className="preview-close" type="button" onClick={() => setPreviewProject(null)} aria-label="Close project preview" autoFocus><X size={20} /></button>
+            <p className="eyebrow"><span /> {previewProject.label}</p>
+            <div className="preview-heading">
+              <div>
+                <h2 id="preview-title">{previewProject.title}</h2>
+                <p>{previewProject.preview.overview}</p>
+              </div>
+              <a className="button button-primary" href={previewProject.href} target="_blank" rel="noreferrer">View source <ArrowUpRight size={17} /></a>
+            </div>
+            <div className="preview-details">
+              <div>
+                <p className="preview-label">What it brings</p>
+                <ul className="preview-features">
+                  {previewProject.preview.features.map((feature) => <li key={feature}>{feature}</li>)}
+                </ul>
+              </div>
+              <dl className="preview-facts">
+                {previewProject.preview.facts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
+              </dl>
+            </div>
+            <div className="preview-tech"><span>Built with</span><ul>{previewProject.technologies.map((tech) => <li key={tech}>{tech}</li>)}</ul></div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }
