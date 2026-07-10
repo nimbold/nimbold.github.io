@@ -239,7 +239,7 @@ function App() {
         <p>I’m open to select collaborations and interesting conversations.</p>
         <div className="contact-actions">
           <a className="button button-light" href="https://github.com/nimbold" target="_blank" rel="noreferrer"><Code2 size={18} /> Find me on GitHub</a>
-          <span className="contact-placeholder"><Mail size={17} /> Email details coming soon</span>
+          <a className="contact-email" href="mailto:nimbold.io@gmail.com"><Mail size={17} /> nimbold.io@gmail.com</a>
         </div>
       </section>
 
