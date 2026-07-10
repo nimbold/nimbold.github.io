@@ -138,63 +138,100 @@ function LivingField() {
     if (!canvas || !context) return
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const pointer = { x: -1000, y: -1000 }
+    const pointer = { x: -1000, y: -1000, vx: 0, vy: 0 }
     let width = 0
     let height = 0
     let pixelRatio = 1
-    let scrollOffset = window.scrollY
+    let particles: Array<{ baseX: number; baseY: number; x: number; y: number; vx: number; vy: number; radius: number; phase: number }> = []
+    let scrollVelocity = 0
+    let lastScroll = window.scrollY
+    let lastScrollTime = performance.now()
+    let lastPointerTime = performance.now()
+    let lastFrame = performance.now()
     let frame = 0
 
+    const buildParticles = () => {
+      const columns = 12
+      const rows = 17
+      particles = Array.from({ length: columns * rows }, (_, index) => {
+        const row = Math.floor(index / columns)
+        const column = index % columns
+        const seed = Math.sin(index * 21.71) * .5 + .5
+        const baseX = width * (.08 + column * .077) + Math.sin(row * 1.38 + column * .81) * 7
+        const baseY = height * (.08 + row * .055) + Math.cos(column * 1.14 + row * .67) * 8
+
+        return {
+          baseX,
+          baseY,
+          x: baseX,
+          y: baseY,
+          vx: 0,
+          vy: 0,
+          radius: 1.8 + seed * 3.3,
+          phase: index * .61 + seed * Math.PI,
+        }
+      })
+    }
+
     const render = (time: number) => {
+      const delta = Math.min((time - lastFrame) / 1000, .032)
+      lastFrame = time
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       context.clearRect(0, 0, width, height)
 
-      const ambient = context.createRadialGradient(width * .62, height * .39, 0, width * .62, height * .39, width * .74)
-      ambient.addColorStop(0, 'rgba(255, 255, 255, .76)')
-      ambient.addColorStop(.54, 'rgba(222, 234, 247, .22)')
-      ambient.addColorStop(1, 'rgba(196, 218, 238, 0)')
-      context.fillStyle = ambient
-      context.fillRect(0, 0, width, height)
+      const reach = Math.max(130, Math.min(width, height) * .64)
+      const pointerSpeed = Math.min(Math.hypot(pointer.vx, pointer.vy), 1500)
 
-      const columns = 11
-      const rows = 15
-      const timePhase = prefersReducedMotion ? 0 : time * .00055
-      const scrollPhase = scrollOffset * .004
+      particles.forEach((particle) => {
+        const pointerX = particle.x - pointer.x
+        const pointerY = particle.y - pointer.y
+        const distance = Math.hypot(pointerX, pointerY) || 1
+        const influence = Math.max(0, 1 - distance / reach)
+        const strength = influence * influence
+        const normalX = pointerX / distance
+        const normalY = pointerY / distance
+        const wave = Math.sin(distance * .071 - time * .0042 + particle.phase) * strength
+        const drift = prefersReducedMotion ? 0 : Math.sin(time * .00075 + particle.phase) * 7
+        const springX = (particle.baseX - particle.x) * 21
+        const springY = (particle.baseY - particle.y) * 21
+        const pointerForce = 82 + pointerSpeed * .16
+        const flowX = pointer.vx * strength * .19 + normalX * (pointerForce * strength + wave * 130)
+        const flowY = pointer.vy * strength * .19 + normalY * (pointerForce * strength + wave * 130)
+        const scrollWave = Math.sin(particle.baseX * .043 + particle.phase + time * .002) * scrollVelocity * .19
+        const accelerationX = springX - particle.vx * 8.2 + flowX + drift
+        const accelerationY = springY - particle.vy * 8.2 + flowY + scrollWave
 
-      for (let row = 0; row < rows; row += 1) {
-        for (let column = 0; column < columns; column += 1) {
-          const index = row * columns + column
-          const seed = Math.sin(index * 21.71) * .5 + .5
-          const baseX = width * (.09 + column * .082) + Math.sin(row * 1.38 + column * .81) * 6
-          const baseY = height * (.10 + row * .061) + Math.cos(column * 1.14 + row * .67) * 8
-          const dx = baseX - pointer.x
-          const dy = baseY - pointer.y
-          const distance = Math.hypot(dx, dy)
-          const influence = Math.max(0, 1 - distance / Math.max(width * .42, 1))
-          const direction = Math.atan2(dy, dx)
-          const drift = prefersReducedMotion ? 0 : Math.sin(timePhase + index * .38 + scrollPhase) * (1.6 + seed * 2.4)
-          const push = influence * (18 + seed * 18)
-          const x = baseX + Math.cos(direction) * push + Math.cos(timePhase * .72 + row) * drift
-          const y = baseY + Math.sin(direction) * push + Math.sin(timePhase * .64 + column) * drift
-          const radius = 2.3 + seed * 3.8 + influence * 5.5
-          const stretch = 1 + influence * 1.7
-          const tint = influence > .3 ? `rgba(254, 97, 56, ${.42 + influence * .42})` : `rgba(35, 48, 64, ${.24 + seed * .34})`
-
-          context.save()
-          context.translate(x, y)
-          context.rotate(direction + Math.sin(timePhase + index) * .16)
-          context.fillStyle = tint
-          context.beginPath()
-          context.ellipse(0, 0, radius * stretch, radius / Math.sqrt(stretch), 0, 0, Math.PI * 2)
-          context.fill()
-          context.restore()
+        if (!prefersReducedMotion) {
+          particle.vx += accelerationX * delta
+          particle.vy += accelerationY * delta
+          particle.x += particle.vx * delta
+          particle.y += particle.vy * delta
         }
-      }
+
+        const speed = Math.min(Math.hypot(particle.vx, particle.vy), 360)
+        const stretch = 1 + speed / 520 + strength * .55
+        const tint = strength > .22
+          ? `rgba(254, 97, 56, ${.38 + strength * .45})`
+          : `rgba(27, 26, 25, ${.27 + particle.radius * .055})`
+
+        context.save()
+        context.translate(particle.x, particle.y)
+        context.rotate(Math.atan2(particle.vy, particle.vx))
+        context.fillStyle = tint
+        context.beginPath()
+        context.ellipse(0, 0, particle.radius * stretch, particle.radius / stretch, 0, 0, Math.PI * 2)
+        context.fill()
+        context.restore()
+      })
+
+      pointer.vx *= .89
+      pointer.vy *= .89
+      scrollVelocity *= .9
     }
 
     const draw = (time: number) => {
       render(time)
-      frame = window.requestAnimationFrame(draw)
+      if (!prefersReducedMotion) frame = window.requestAnimationFrame(draw)
     }
 
     const resize = () => {
@@ -204,27 +241,41 @@ function LivingField() {
       pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
       canvas.width = Math.round(width * pixelRatio)
       canvas.height = Math.round(height * pixelRatio)
+      buildParticles()
       render(performance.now())
     }
 
     const onPointerMove = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect()
-      pointer.x = event.clientX - rect.left
-      pointer.y = event.clientY - rect.top
+      const now = performance.now()
+      const elapsed = Math.max((now - lastPointerTime) / 1000, .016)
+      const nextX = event.clientX - rect.left
+      const nextY = event.clientY - rect.top
+      pointer.vx = Math.max(-1500, Math.min(1500, (nextX - pointer.x) / elapsed))
+      pointer.vy = Math.max(-1500, Math.min(1500, (nextY - pointer.y) / elapsed))
+      pointer.x = nextX
+      pointer.y = nextY
+      lastPointerTime = now
     }
 
     const onPointerLeave = () => {
       pointer.x = -width
       pointer.y = height * .5
+      pointer.vx = 0
+      pointer.vy = 0
     }
 
     const onScroll = () => {
-      scrollOffset = window.scrollY
+      const now = performance.now()
+      const elapsed = Math.max((now - lastScrollTime) / 1000, .016)
+      scrollVelocity = Math.max(-1500, Math.min(1500, (window.scrollY - lastScroll) / elapsed))
+      lastScroll = window.scrollY
+      lastScrollTime = now
     }
 
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
-    window.addEventListener('pointermove', onPointerMove, { passive: true })
+    canvas.addEventListener('pointermove', onPointerMove, { passive: true })
     window.addEventListener('scroll', onScroll, { passive: true })
     canvas.addEventListener('pointerleave', onPointerLeave)
     resize()
@@ -232,7 +283,7 @@ function LivingField() {
 
     return () => {
       observer.disconnect()
-      window.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('scroll', onScroll)
       canvas.removeEventListener('pointerleave', onPointerLeave)
       window.cancelAnimationFrame(frame)
@@ -345,10 +396,7 @@ function App() {
         </div>
         <div className="hero-art reveal-delay" aria-hidden="true">
           <div className="art-frame interactive-art">
-            <div className="art-wash" />
             <LivingField />
-            <span className="art-index">FIELD / 01</span>
-            <span className="art-caption">MOVE / SCROLL<br />TO DISTORT</span>
           </div>
         </div>
         <a className="scroll-cue" href="#work"><span>Scroll to explore</span><ArrowDownRight size={17} /></a>
