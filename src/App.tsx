@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
-  BadgeCheck,
   Braces,
   Code2,
   Layers3,
@@ -10,9 +9,18 @@ import {
   Menu,
   MoveRight,
   Sparkles,
+  Moon,
+  Sun,
   X,
 } from 'lucide-react'
 import './App.css'
+
+import firelinkDark from '../Screenshots/Firelink-Dark.png'
+import firelinkLight from '../Screenshots/Firelink-Light.png'
+import companionDark from '../Screenshots/Firelink-Extension-dark.jpg'
+import companionLight from '../Screenshots/Firelink-Extension-Light.jpg'
+import lifeXpDark from '../Screenshots/LifeXP-Dark.png'
+import lifeXpLight from '../Screenshots/LifeXP-Light.png'
 
 type Project = {
   title: string
@@ -68,43 +76,49 @@ const navigation = [
   ['Contact', '#contact'],
 ]
 
-function ProjectVisual({ visual }: { visual: Project['visual'] }) {
-  if (visual === 'firelink') {
-    return (
-      <div className="project-visual firelink-visual" aria-hidden="true">
-        <div className="download-orbit orbit-one" />
-        <div className="download-orbit orbit-two" />
-        <div className="download-core"><ArrowDownRight size={38} strokeWidth={1.4} /></div>
-        <span className="visual-label">TRANSFER ENGINE</span>
-        <span className="visual-stat">12.8 <small>MB/s</small></span>
-      </div>
-    )
-  }
+const projectScreenshots = {
+  firelink: { dark: firelinkDark, light: firelinkLight },
+  companion: { dark: companionDark, light: companionLight },
+  lifexp: { dark: lifeXpDark, light: lifeXpLight },
+} as const
 
-  if (visual === 'companion') {
-    return (
-      <div className="project-visual companion-visual" aria-hidden="true">
-        <div className="browser-panel">
-          <div className="browser-dots"><i /><i /><i /></div>
-          <div className="browser-address" />
-          <div className="extension-chip"><Sparkles size={16} /> LINKED</div>
-          <div className="browser-lines"><span /><span /><span /></div>
-        </div>
-        <div className="secure-path"><i /><i /><i /><i /><i /></div>
-        <span className="visual-label">LOCAL / VERIFIED</span>
-      </div>
-    )
-  }
+function ProjectVisual({ project }: { project: Project }) {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const image = projectScreenshots[project.visual][theme]
 
   return (
-    <div className="project-visual lifexp-visual" aria-hidden="true">
-      <div className="xp-window">
-        <div className="xp-heading"><span>LVL</span><strong>24</strong><BadgeCheck size={18} /></div>
-        <div className="xp-bar"><span /></div>
-        <div className="xp-stats"><b>STR <em>08</em></b><b>FOC <em>14</em></b><b>WIS <em>11</em></b></div>
+    <div className={`project-visual screenshot-visual ${theme === 'light' ? 'is-light' : ''}`}>
+      <img
+        className="project-screenshot"
+        key={image}
+        src={image}
+        alt={`${project.title} in ${theme} theme`}
+      />
+      <div className="screenshot-shade" aria-hidden="true" />
+      <div className="screenshot-meta" aria-hidden="true">
+        <span>Product preview</span>
+        <span>{theme} theme</span>
       </div>
-      <div className="xp-spark spark-one">✦</div><div className="xp-spark spark-two">✧</div>
-      <span className="visual-label">DAILY QUEST LOG</span>
+      <div className="theme-switch" role="group" aria-label={`${project.title} preview theme`}>
+        <button
+          className={theme === 'dark' ? 'active' : ''}
+          type="button"
+          onClick={() => setTheme('dark')}
+          aria-label={`Show ${project.title} in dark theme`}
+          aria-pressed={theme === 'dark'}
+        >
+          <Moon size={13} fill="currentColor" />
+        </button>
+        <button
+          className={theme === 'light' ? 'active' : ''}
+          type="button"
+          onClick={() => setTheme('light')}
+          aria-label={`Show ${project.title} in light theme`}
+          aria-pressed={theme === 'light'}
+        >
+          <Sun size={14} />
+        </button>
+      </div>
     </div>
   )
 }
@@ -172,7 +186,7 @@ function App() {
         <div className="project-grid">
           {visibleProjects.map((project, index) => (
             <article className={`project-card project-${project.visual}`} key={project.title} style={{ '--delay': `${index * 85}ms` } as React.CSSProperties}>
-              <ProjectVisual visual={project.visual} />
+              <ProjectVisual project={project} />
               <div className="project-content">
                 <div className="project-topline"><span>{project.label}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
                 <h3>{project.title}</h3>
