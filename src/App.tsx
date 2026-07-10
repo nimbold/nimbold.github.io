@@ -142,7 +142,11 @@ function LivingField() {
     let width = 0
     let height = 0
     let pixelRatio = 1
-    let particles: Array<{ baseX: number; baseY: number; x: number; y: number; vx: number; vy: number; radius: number; phase: number; heat: number; kind: 'ring' | 'trail' | 'ash' }> = []
+    let particles: Array<{ baseX: number; baseY: number; x: number; y: number; vx: number; vy: number; radius: number; phase: number; intensity: number; layer: 'back' | 'front' | 'halo' | 'dust' }> = []
+    let coreX = 0
+    let coreY = 0
+    let coreRadius = 0
+    const lens = { x: 0, y: 0, vx: 0, vy: 0 }
     let scrollVelocity = 0
     let lastScroll = window.scrollY
     let lastScrollTime = performance.now()
@@ -151,11 +155,10 @@ function LivingField() {
     let frame = 0
 
     const buildParticles = () => {
-      const centerX = width * .53
-      const centerY = height * .32
-      const ringRadius = Math.min(width * .31, height * .25)
-      const ringRatio = .84
-      const nextParticle = (baseX: number, baseY: number, index: number, kind: 'ring' | 'trail' | 'ash', heat: number) => {
+      coreX = width * .53
+      coreY = height * .47
+      coreRadius = Math.min(width, height) * .185
+      const nextParticle = (baseX: number, baseY: number, index: number, layer: 'back' | 'front' | 'halo' | 'dust', intensity: number) => {
         const seed = Math.sin(index * 21.71) * .5 + .5
         return {
           baseX,
@@ -164,75 +167,62 @@ function LivingField() {
           y: baseY,
           vx: 0,
           vy: 0,
-          radius: 1.35 + seed * 2.6 + (kind === 'ash' ? 0 : .5),
+          radius: .65 + seed * 1.7 + (layer === 'front' ? .65 : 0),
           phase: index * .61 + seed * Math.PI,
-          heat,
-          kind,
+          intensity,
+          layer,
         }
       }
 
-      const sigilParticles = []
-      const ringCount = 198
-      for (let index = 0; index < ringCount; index += 1) {
+      const fieldParticles: typeof particles = []
+      const discCount = 0
+      for (let index = 0; index < discCount; index += 1) {
         const seed = Math.sin(index * 21.71) * .5 + .5
-        const angle = index / ringCount * Math.PI * 2
-        const scar = Math.sin(angle * 9 + seed * 7) * ringRadius * .055
-        const radius = ringRadius + scar + (seed - .5) * ringRadius * .07
-        sigilParticles.push(nextParticle(
-          centerX + Math.cos(angle) * radius,
-          centerY + Math.sin(angle) * radius * ringRatio,
+        const span = index / (discCount - 1) * 2 - 1
+        const density = 1 - Math.abs(span)
+        const band = (seed - .5) * height * (.025 + density * .075)
+        const lensCurve = Math.sin(span * Math.PI) * height * .035
+        const layer = Math.abs(span) < .48 && seed > .3 ? 'front' : 'back'
+        fieldParticles.push(nextParticle(
+          coreX + span * width * .63,
+          coreY - span * height * .19 + band + lensCurve,
           index,
-          'ring',
-          .14 + seed * .58,
+          layer,
+          .25 + density * .6 + seed * .15,
         ))
       }
 
-      const flareCount = 62
-      for (let index = 0; index < flareCount; index += 1) {
-        const particleIndex = ringCount + index
+      const haloCount = 0
+      for (let index = 0; index < haloCount; index += 1) {
+        const particleIndex = discCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
-        const angle = (index / flareCount * Math.PI * 2) - Math.PI * .5
-        const flare = 10 + seed * 30 + Math.max(0, Math.cos(angle)) * 13
-        sigilParticles.push(nextParticle(
-          centerX + Math.cos(angle) * (ringRadius + flare),
-          centerY + Math.sin(angle) * (ringRadius * ringRatio + flare * .55),
+        const angle = index / haloCount * Math.PI * 2
+        const radius = coreRadius * (1.08 + seed * .45)
+        fieldParticles.push(nextParticle(
+          coreX + Math.cos(angle) * radius,
+          coreY + Math.sin(angle) * radius * .84,
           particleIndex,
-          'ring',
-          .1 + seed * .42,
+          'halo',
+          .2 + seed * .56,
         ))
       }
 
-      const trailCount = 118
-      for (let index = 0; index < trailCount; index += 1) {
-        const particleIndex = ringCount + flareCount + index
-        const seed = Math.sin(particleIndex * 21.71) * .5 + .5
-        const progress = index / (trailCount - 1)
-        const trailWidth = width * (.009 + (1 - progress) * .021)
-        sigilParticles.push(nextParticle(
-          centerX + Math.sin(index * 1.83) * trailWidth + (seed - .5) * trailWidth,
-          centerY + ringRadius * ringRatio + progress * height * .47,
-          particleIndex,
-          'trail',
-          .1 + seed * .52,
-        ))
-      }
-
-      const ashCount = 58
-      for (let index = 0; index < ashCount; index += 1) {
-        const particleIndex = ringCount + flareCount + trailCount + index
+      const dustCount = 108
+      for (let index = 0; index < dustCount; index += 1) {
+        const particleIndex = discCount + haloCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
         const angle = seed * Math.PI * 2 + index * .43
-        const distance = ringRadius * (1.18 + seed * .68)
-        sigilParticles.push(nextParticle(
-          centerX + Math.cos(angle) * distance,
-          centerY + Math.sin(angle) * distance * ringRatio,
+        const distance = coreRadius * (1.6 + seed * 2.65)
+        fieldParticles.push(nextParticle(
+          coreX + Math.cos(angle) * distance,
+          coreY + Math.sin(angle) * distance * .76,
           particleIndex,
-          'ash',
-          .05 + seed * .24,
+          'dust',
+          .08 + seed * .25,
         ))
       }
 
-      particles = sigilParticles
+      particles = fieldParticles
     }
 
     const render = (time: number) => {
@@ -241,28 +231,25 @@ function LivingField() {
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       context.clearRect(0, 0, width, height)
 
-      const reach = Math.max(130, Math.min(width, height) * .64)
-      const pointerSpeed = Math.min(Math.hypot(pointer.vx, pointer.vy), 1500)
+      const targetLensX = pointer.x < 0 ? 0 : (pointer.x - width * .5) * .035
+      const targetLensY = pointer.y < 0 ? 0 : (pointer.y - height * .5) * .022
+      lens.vx += (targetLensX - lens.x) * 4.2 * delta
+      lens.vy += (targetLensY - lens.y) * 4.2 * delta
+      lens.vx *= .84
+      lens.vy *= .84
+      lens.x += lens.vx
+      lens.y += lens.vy
+      const centerX = coreX + lens.x
+      const centerY = coreY + lens.y
 
       particles.forEach((particle) => {
-        const pointerX = particle.x - pointer.x
-        const pointerY = particle.y - pointer.y
-        const distance = Math.hypot(pointerX, pointerY) || 1
-        const influence = Math.max(0, 1 - distance / reach)
-        const strength = influence * influence
-        const normalX = pointerX / distance
-        const normalY = pointerY / distance
-        const wave = Math.sin(distance * .071 - time * .0042 + particle.phase) * strength
-        const drift = prefersReducedMotion ? 0 : Math.sin(time * .00075 + particle.phase) * 7
-        const springX = (particle.baseX - particle.x) * 21
-        const springY = (particle.baseY - particle.y) * 21
-        const pointerForce = 82 + pointerSpeed * .16
-        const flowX = pointer.vx * strength * .19 + normalX * (pointerForce * strength + wave * 130)
-        const flowY = pointer.vy * strength * .19 + normalY * (pointerForce * strength + wave * 130)
-        const scrollWave = Math.sin(particle.baseX * .043 + particle.phase + time * .002) * scrollVelocity * .19
-        const accelerationX = springX - particle.vx * 8.2 + flowX + drift
-        const emberLift = Math.sin(time * .0026 + particle.phase) * (particle.heat * 9 + 2)
-        const accelerationY = springY - particle.vy * 8.2 + flowY + scrollWave - emberLift
+        const orbital = particle.layer === 'dust' ? 1.4 : particle.layer === 'halo' ? 2.1 : .7
+        const driftX = Math.sin(time * .0008 * orbital + particle.phase) * (particle.layer === 'dust' ? 4 : 1.4)
+        const driftY = Math.cos(time * .0011 * orbital + particle.phase) * (particle.layer === 'dust' ? 4 : 1.1)
+        const targetX = particle.baseX + lens.x + driftX
+        const targetY = particle.baseY + lens.y + driftY + scrollVelocity * .006
+        const accelerationX = (targetX - particle.x) * 18 - particle.vx * 7.5
+        const accelerationY = (targetY - particle.y) * 18 - particle.vy * 7.5
 
         if (!prefersReducedMotion) {
           particle.vx += accelerationX * delta
@@ -271,32 +258,114 @@ function LivingField() {
           particle.y += particle.vy * delta
         }
 
-        const speed = Math.min(Math.hypot(particle.vx, particle.vy), 360)
-        const flicker = .5 + Math.sin(time * .008 + particle.phase) * .5
-        const stretch = 1 + speed / 520 + strength * .55 + flicker * .16
-        const heat = Math.min(1, particle.heat + strength * .75 + flicker * .15)
-        const tint = heat > .62
-          ? `rgba(242, 91, 44, ${.36 + heat * .52})`
-          : heat > .38
-            ? `rgba(143, 58, 34, ${.32 + heat * .5})`
-            : `rgba(31, 27, 24, ${.28 + particle.radius * .065})`
+      })
+
+      const drawLayer = (layer: 'back' | 'front' | 'halo' | 'dust') => {
+        particles.filter((particle) => particle.layer === layer).forEach((particle) => {
+          const flicker = .58 + Math.sin(time * .005 + particle.phase) * .28
+          const radius = particle.radius * (layer === 'front' ? 1.2 : 1)
+          const color = layer === 'front'
+            ? `rgba(255, 203, 127, ${particle.intensity * flicker * .46})`
+            : layer === 'back'
+              ? `rgba(166, 91, 54, ${particle.intensity * flicker * .3})`
+              : layer === 'halo'
+                ? `rgba(236, 157, 87, ${particle.intensity * flicker * .68})`
+                : `rgba(45, 40, 34, ${particle.intensity * flicker})`
+
+          context.save()
+          context.translate(particle.x, particle.y)
+          context.rotate(Math.atan2(particle.vy, particle.vx) + (layer === 'dust' ? 0 : -.3))
+          context.fillStyle = color
+          if (layer === 'front' || layer === 'halo') {
+            context.shadowColor = 'rgba(236, 135, 72, .45)'
+            context.shadowBlur = 4 + particle.intensity * 7
+          }
+          context.beginPath()
+          if (layer === 'back' || layer === 'front') {
+            context.ellipse(0, 0, radius * 1.8, radius * .34, 0, 0, Math.PI * 2)
+          } else {
+            context.ellipse(0, 0, radius, radius * .72, 0, 0, Math.PI * 2)
+          }
+          context.fill()
+          context.restore()
+        })
+      }
+
+      const drawAccretionBand = (front: boolean) => {
+        const startX = centerX - width * .62
+        const endX = centerX + width * .62
+        const startY = centerY + height * .2
+        const endY = centerY - height * .2
+        const gradient = context.createLinearGradient(startX, startY, endX, endY)
+        gradient.addColorStop(0, 'rgba(190, 101, 56, 0)')
+        gradient.addColorStop(.2, front ? 'rgba(232, 155, 89, .45)' : 'rgba(183, 96, 53, .16)')
+        gradient.addColorStop(.5, front ? 'rgba(255, 225, 164, .92)' : 'rgba(224, 132, 73, .26)')
+        gradient.addColorStop(.8, front ? 'rgba(232, 155, 89, .45)' : 'rgba(183, 96, 53, .16)')
+        gradient.addColorStop(1, 'rgba(190, 101, 56, 0)')
 
         context.save()
-        context.translate(particle.x, particle.y)
-        context.rotate(Math.atan2(particle.vy, particle.vx) + (particle.kind === 'trail' ? 0 : Math.PI * .5))
-        context.fillStyle = tint
-        if (heat > .7) {
-          context.shadowColor = 'rgba(254, 97, 56, .42)'
-          context.shadowBlur = 5 + heat * 7
-        }
+        context.strokeStyle = gradient
+        context.lineCap = 'round'
+        context.shadowColor = front ? 'rgba(245, 166, 91, .46)' : 'rgba(190, 101, 56, .18)'
+        context.shadowBlur = front ? 18 : 10
+        context.lineWidth = front ? 2.6 : 10
         context.beginPath()
-        context.moveTo(0, -particle.radius * stretch * 1.5)
-        context.quadraticCurveTo(particle.radius * stretch, -particle.radius * .1, particle.radius * .55, particle.radius * stretch)
-        context.quadraticCurveTo(0, particle.radius * stretch * 1.28, -particle.radius * .55, particle.radius * stretch)
-        context.quadraticCurveTo(-particle.radius * stretch, -particle.radius * .1, 0, -particle.radius * stretch * 1.5)
-        context.fill()
+        context.moveTo(startX, startY)
+        context.bezierCurveTo(centerX - width * .22, centerY + height * .08, centerX + width * .22, centerY - height * .08, endX, endY)
+        context.stroke()
         context.restore()
-      })
+      }
+
+      const drawLensingArc = () => {
+        context.save()
+        context.translate(centerX, centerY)
+        context.rotate(-.3)
+        context.strokeStyle = 'rgba(240, 170, 97, .38)'
+        context.lineWidth = 2.4
+        context.shadowColor = 'rgba(236, 145, 73, .35)'
+        context.shadowBlur = 13
+        context.beginPath()
+        context.ellipse(0, 0, coreRadius * 1.28, coreRadius * .62, 0, .1, Math.PI * 1.05)
+        context.stroke()
+        context.strokeStyle = 'rgba(255, 221, 159, .45)'
+        context.lineWidth = 1.15
+        context.beginPath()
+        context.ellipse(0, 0, coreRadius * 1.18, coreRadius * .52, 0, Math.PI * 1.14, Math.PI * 2.08)
+        context.stroke()
+        context.restore()
+      }
+
+      drawLayer('dust')
+      drawAccretionBand(false)
+      drawLensingArc()
+
+      const halo = context.createRadialGradient(centerX, centerY, coreRadius * .48, centerX, centerY, coreRadius * 1.75)
+      halo.addColorStop(0, 'rgba(20, 18, 16, 0)')
+      halo.addColorStop(.54, 'rgba(29, 24, 20, 0)')
+      halo.addColorStop(.68, 'rgba(199, 113, 61, .17)')
+      halo.addColorStop(.83, 'rgba(232, 166, 97, .11)')
+      halo.addColorStop(1, 'rgba(232, 166, 97, 0)')
+      context.fillStyle = halo
+      context.beginPath()
+      context.arc(centerX, centerY, coreRadius * 1.75, 0, Math.PI * 2)
+      context.fill()
+
+      context.save()
+      context.shadowColor = 'rgba(243, 175, 101, .28)'
+      context.shadowBlur = 16
+      context.fillStyle = '#1c1a18'
+      context.beginPath()
+      context.arc(centerX, centerY, coreRadius, 0, Math.PI * 2)
+      context.fill()
+      context.restore()
+
+      context.strokeStyle = 'rgba(255, 218, 157, .5)'
+      context.lineWidth = 1
+      context.beginPath()
+      context.arc(centerX, centerY, coreRadius * 1.018, 0, Math.PI * 2)
+      context.stroke()
+
+      drawAccretionBand(true)
 
       pointer.vx *= .89
       pointer.vy *= .89
