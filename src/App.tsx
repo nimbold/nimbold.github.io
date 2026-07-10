@@ -139,7 +139,7 @@ function App() {
   return (
     <main>
       <header className={`site-header ${scrolled ? 'is-scrolled' : ''}`}>
-        <a className="brand" href="#top" aria-label="Nimbold home">N<span>°</span></a>
+        <a className="brand" href="#top" aria-label="NimBold home">N<span>°</span></a>
         <nav className="desktop-nav" aria-label="Main navigation">
           {navigation.map(([name, href]) => <a key={name} href={href}>{name}</a>)}
         </nav>
@@ -245,7 +245,7 @@ function App() {
 
       <footer>
         <a className="brand" href="#top">N<span>°</span></a>
-        <p>© {new Date().getFullYear()} Nimbold. Built with focus.</p>
+        <p>© {new Date().getFullYear()} NimBold. Built with focus.</p>
         <a href="#top">Back to top <ArrowUpRight size={14} /></a>
       </footer>
     </main>
