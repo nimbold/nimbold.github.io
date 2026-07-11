@@ -126,7 +126,9 @@ const navigation = [
 
 type Theme = 'light' | 'dark'
 
-const themeStorageKey = 'nimbold-theme'
+// Explicit toggle choices are stored separately from the legacy key so existing
+// visitors fall back to their browser/system preference after this update.
+const themeStorageKey = 'nimbold-theme-override'
 
 function readStoredTheme(): Theme | null {
   if (typeof window === 'undefined') return null
@@ -697,7 +699,7 @@ function App() {
       </header>
 
       <section className="hero" id="top">
-        <div className="hero-glow glow-one" /><div className="hero-glow glow-two" />
+        <div className="hero-glow glow-one" />
         <div className="hero-copy reveal">
           <p className="eyebrow"><span /> Independent developer · Iran</p>
           <h1>Building quiet,<br /><em>useful</em> software.</h1>
