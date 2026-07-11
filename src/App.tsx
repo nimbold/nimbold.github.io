@@ -241,7 +241,7 @@ function LivingField() {
         ))
       }
 
-      const dustCount = 176
+      const dustCount = 528
       for (let index = 0; index < dustCount; index += 1) {
         const particleIndex = discCount + haloCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
