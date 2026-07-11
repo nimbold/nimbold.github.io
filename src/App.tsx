@@ -176,6 +176,7 @@ function LivingField() {
     let frame = 0
     let pointerDownAt = 0
     let leftPointerDown = false
+    let gravityStrength = 1
 
     const buildParticles = () => {
       coreX = width * .53
@@ -241,7 +242,7 @@ function LivingField() {
         ))
       }
 
-      const dustCount = 528
+      const dustCount = 1056
       for (let index = 0; index < dustCount; index += 1) {
         const particleIndex = discCount + haloCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
@@ -283,10 +284,11 @@ function LivingField() {
       const holdProgress = leftPointerDown
         ? Math.min(1, (time - pointerDownAt) / 2600)
         : 0
-      const gravityStrength = 1
+      const targetGravityStrength = 1
         + pointer.activity * .95
         + pointerProximity * .9
         + holdProgress * (2.6 + pointerProximity * 1.5)
+      gravityStrength += (targetGravityStrength - gravityStrength) * Math.min(1, delta * 5.5)
       const safeDelta = Math.max(delta, .001)
 
       particles.forEach((particle) => {
