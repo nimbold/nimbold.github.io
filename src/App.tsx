@@ -168,7 +168,6 @@ function LivingField() {
     let coreX = 0
     let coreY = 0
     let coreRadius = 0
-    const lens = { x: 0, y: 0, vx: 0, vy: 0 }
     let scrollVelocity = 0
     let lastScroll = window.scrollY
     let lastScrollTime = performance.now()
@@ -273,16 +272,8 @@ function LivingField() {
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       context.clearRect(0, 0, width, height)
 
-      const targetLensX = pointer.x < 0 ? 0 : (pointer.x - width * .5) * .035
-      const targetLensY = pointer.y < 0 ? 0 : (pointer.y - height * .5) * .022
-      lens.vx += (targetLensX - lens.x) * 4.2 * delta
-      lens.vy += (targetLensY - lens.y) * 4.2 * delta
-      lens.vx *= .84
-      lens.vy *= .84
-      lens.x += lens.vx
-      lens.y += lens.vy
-      const centerX = coreX + lens.x
-      const centerY = coreY + lens.y
+      const centerX = coreX
+      const centerY = coreY
       const pointerDistance = pointer.x < 0
         ? Number.POSITIVE_INFINITY
         : Math.hypot(pointer.x - centerX, pointer.y - centerY)
@@ -322,8 +313,8 @@ function LivingField() {
         const orbital = particle.layer === 'halo' ? 2.1 : .7
         const driftX = Math.sin(time * .0008 * orbital + particle.phase) * 1.4
         const driftY = Math.cos(time * .0011 * orbital + particle.phase) * 1.1
-        const targetX = particle.baseX + lens.x + driftX
-        const targetY = particle.baseY + lens.y + driftY + scrollVelocity * .006
+        const targetX = particle.baseX + driftX
+        const targetY = particle.baseY + driftY + scrollVelocity * .006
         const accelerationX = (targetX - particle.x) * 18 - particle.vx * 7.5
         const accelerationY = (targetY - particle.y) * 18 - particle.vy * 7.5
 
