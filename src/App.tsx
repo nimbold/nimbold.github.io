@@ -129,6 +129,28 @@ const projectScreenshots = {
   lifexp: { dark: lifeXpDark, light: lifeXpLight },
 } as const
 
+type FieldLayer = 'back' | 'front' | 'halo' | 'dust'
+
+type FieldParticle = {
+  baseX: number
+  baseY: number
+  x: number
+  y: number
+  vx: number
+  vy: number
+  radius: number
+  phase: number
+  intensity: number
+  layer: FieldLayer
+  angle: number
+  distance: number
+  spawnDistance: number
+  orbitScale: number
+  angularSpeed: number
+  infallSpeed: number
+  shade: number
+}
+
 function LivingField() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -138,11 +160,11 @@ function LivingField() {
     if (!canvas || !context) return
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const pointer = { x: -1000, y: -1000, vx: 0, vy: 0 }
+    const pointer = { x: -1000, y: -1000, vx: 0, vy: 0, activity: 0 }
     let width = 0
     let height = 0
     let pixelRatio = 1
-    let particles: Array<{ baseX: number; baseY: number; x: number; y: number; vx: number; vy: number; radius: number; phase: number; intensity: number; layer: 'back' | 'front' | 'halo' | 'dust' }> = []
+    let particles: FieldParticle[] = []
     let coreX = 0
     let coreY = 0
     let coreRadius = 0
@@ -153,13 +175,17 @@ function LivingField() {
     let lastPointerTime = performance.now()
     let lastFrame = performance.now()
     let frame = 0
+    let pointerDownAt = 0
+    let leftPointerDown = false
 
     const buildParticles = () => {
       coreX = width * .53
       coreY = height * .47
       coreRadius = Math.min(width, height) * .185
-      const nextParticle = (baseX: number, baseY: number, index: number, layer: 'back' | 'front' | 'halo' | 'dust', intensity: number) => {
+      const nextParticle = (baseX: number, baseY: number, index: number, layer: FieldLayer, intensity: number): FieldParticle => {
         const seed = Math.sin(index * 21.71) * .5 + .5
+        const sizeSeed = Math.sin(index * 7.37 + 1.8) * .5 + .5
+        const shade = Math.sin(index * 17.23 + 3.1) * .5 + .5
         return {
           baseX,
           baseY,
@@ -167,14 +193,23 @@ function LivingField() {
           y: baseY,
           vx: 0,
           vy: 0,
-          radius: .65 + seed * 1.7 + (layer === 'front' ? .65 : 0),
+          radius: layer === 'dust'
+            ? .35 + sizeSeed * 1.15 + (sizeSeed > .84 ? .65 : 0)
+            : .65 + seed * 1.7 + (layer === 'front' ? .65 : 0),
           phase: index * .61 + seed * Math.PI,
           intensity,
           layer,
+          angle: 0,
+          distance: 0,
+          spawnDistance: 0,
+          orbitScale: .76,
+          angularSpeed: 0,
+          infallSpeed: 0,
+          shade,
         }
       }
 
-      const fieldParticles: typeof particles = []
+      const fieldParticles: FieldParticle[] = []
       const discCount = 0
       for (let index = 0; index < discCount; index += 1) {
         const seed = Math.sin(index * 21.71) * .5 + .5
@@ -207,19 +242,26 @@ function LivingField() {
         ))
       }
 
-      const dustCount = 108
+      const dustCount = 176
       for (let index = 0; index < dustCount; index += 1) {
         const particleIndex = discCount + haloCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
         const angle = seed * Math.PI * 2 + index * .43
         const distance = coreRadius * (1.6 + seed * 2.65)
-        fieldParticles.push(nextParticle(
+        const particle = nextParticle(
           coreX + Math.cos(angle) * distance,
           coreY + Math.sin(angle) * distance * .76,
           particleIndex,
           'dust',
-          .08 + seed * .25,
-        ))
+          .11 + seed * .25,
+        )
+        particle.angle = angle
+        particle.distance = distance
+        particle.spawnDistance = distance * (.92 + particle.shade * .1)
+        particle.orbitScale = .68 + particle.shade * .2
+        particle.angularSpeed = .08 + seed * .08
+        particle.infallSpeed = .55 + seed * .65
+        fieldParticles.push(particle)
       }
 
       particles = fieldParticles
@@ -241,11 +283,45 @@ function LivingField() {
       lens.y += lens.vy
       const centerX = coreX + lens.x
       const centerY = coreY + lens.y
+      const pointerDistance = pointer.x < 0
+        ? Number.POSITIVE_INFINITY
+        : Math.hypot(pointer.x - centerX, pointer.y - centerY)
+      const pointerProximity = Number.isFinite(pointerDistance)
+        ? Math.max(0, 1 - pointerDistance / (Math.max(width, height) * .72))
+        : 0
+      const holdProgress = leftPointerDown
+        ? Math.min(1, (time - pointerDownAt) / 2600)
+        : 0
+      const gravityStrength = 1
+        + pointer.activity * .95
+        + pointerProximity * .9
+        + holdProgress * (2.6 + pointerProximity * 1.5)
+      const safeDelta = Math.max(delta, .001)
 
       particles.forEach((particle) => {
-        const orbital = particle.layer === 'dust' ? 1.4 : particle.layer === 'halo' ? 2.1 : .7
-        const driftX = Math.sin(time * .0008 * orbital + particle.phase) * (particle.layer === 'dust' ? 4 : 1.4)
-        const driftY = Math.cos(time * .0011 * orbital + particle.phase) * (particle.layer === 'dust' ? 4 : 1.1)
+        if (particle.layer === 'dust') {
+          if (!prefersReducedMotion) {
+            const previousX = particle.x
+            const previousY = particle.y
+            particle.angle += particle.angularSpeed * gravityStrength * delta
+            particle.distance -= particle.infallSpeed * gravityStrength * delta
+
+            if (particle.distance <= coreRadius * 1.13) {
+              particle.distance = particle.spawnDistance
+              particle.angle += .35
+            }
+
+            particle.x = centerX + Math.cos(particle.angle) * particle.distance
+            particle.y = centerY + Math.sin(particle.angle) * particle.distance * particle.orbitScale + scrollVelocity * .006
+            particle.vx = (particle.x - previousX) / safeDelta
+            particle.vy = (particle.y - previousY) / safeDelta
+          }
+          return
+        }
+
+        const orbital = particle.layer === 'halo' ? 2.1 : .7
+        const driftX = Math.sin(time * .0008 * orbital + particle.phase) * 1.4
+        const driftY = Math.cos(time * .0011 * orbital + particle.phase) * 1.1
         const targetX = particle.baseX + lens.x + driftX
         const targetY = particle.baseY + lens.y + driftY + scrollVelocity * .006
         const accelerationX = (targetX - particle.x) * 18 - particle.vx * 7.5
@@ -259,30 +335,43 @@ function LivingField() {
         }
 
       })
+      pointer.activity *= Math.pow(.055, delta)
 
       const drawLayer = (layer: 'back' | 'front' | 'halo' | 'dust') => {
         particles.filter((particle) => particle.layer === layer).forEach((particle) => {
           const flicker = .58 + Math.sin(time * .005 + particle.phase) * .28
           const radius = particle.radius * (layer === 'front' ? 1.2 : 1)
+          const infallProgress = layer === 'dust'
+            ? Math.max(0, Math.min(1, (particle.distance - coreRadius * 1.13) / (particle.spawnDistance - coreRadius * 1.13)))
+            : 1
+          const dustRgb = particle.shade > .78
+            ? '214, 150, 88'
+            : particle.shade > .5
+              ? '137, 99, 68'
+              : particle.shade > .22
+                ? '91, 73, 59'
+                : '48, 44, 40'
           const color = layer === 'front'
             ? `rgba(255, 203, 127, ${particle.intensity * flicker * .46})`
             : layer === 'back'
               ? `rgba(166, 91, 54, ${particle.intensity * flicker * .3})`
               : layer === 'halo'
                 ? `rgba(236, 157, 87, ${particle.intensity * flicker * .68})`
-                : `rgba(45, 40, 34, ${particle.intensity * flicker})`
+                : `rgba(${dustRgb}, ${particle.intensity * flicker * (.28 + infallProgress * .72)})`
 
           context.save()
           context.translate(particle.x, particle.y)
           context.rotate(Math.atan2(particle.vy, particle.vx) + (layer === 'dust' ? 0 : -.3))
           context.fillStyle = color
-          if (layer === 'front' || layer === 'halo') {
+          if (layer === 'front' || layer === 'halo' || (layer === 'dust' && particle.shade > .78 && particle.radius > 1.4)) {
             context.shadowColor = 'rgba(236, 135, 72, .45)'
-            context.shadowBlur = 4 + particle.intensity * 7
+            context.shadowBlur = layer === 'dust' ? 3 + particle.intensity * 4 : 4 + particle.intensity * 7
           }
           context.beginPath()
           if (layer === 'back' || layer === 'front') {
             context.ellipse(0, 0, radius * 1.8, radius * .34, 0, 0, Math.PI * 2)
+          } else if (layer === 'dust') {
+            context.arc(0, 0, radius, 0, Math.PI * 2)
           } else {
             context.ellipse(0, 0, radius, radius * .72, 0, 0, Math.PI * 2)
           }
@@ -398,14 +487,32 @@ function LivingField() {
       pointer.vy = Math.max(-1500, Math.min(1500, (nextY - pointer.y) / elapsed))
       pointer.x = nextX
       pointer.y = nextY
+      pointer.activity = Math.min(1, pointer.activity + .16 + Math.min(1, Math.hypot(pointer.vx, pointer.vy) / 1400) * .28)
       lastPointerTime = now
     }
 
     const onPointerLeave = () => {
-      pointer.x = -width
-      pointer.y = height * .5
+      pointer.x = -1000
+      pointer.y = -1000
       pointer.vx = 0
       pointer.vy = 0
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      leftPointerDown = true
+      pointerDownAt = performance.now()
+      pointer.activity = 1
+      canvas.setPointerCapture?.(event.pointerId)
+    }
+
+    const releasePointer = () => {
+      leftPointerDown = false
+      pointerDownAt = 0
+    }
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.button === 0) releasePointer()
     }
 
     const onScroll = () => {
@@ -419,7 +526,11 @@ function LivingField() {
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
     canvas.addEventListener('pointermove', onPointerMove, { passive: true })
+    canvas.addEventListener('pointerdown', onPointerDown)
+    canvas.addEventListener('pointerup', onPointerUp)
+    canvas.addEventListener('pointercancel', releasePointer)
     window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('pointerup', onPointerUp)
     canvas.addEventListener('pointerleave', onPointerLeave)
     resize()
     if (!prefersReducedMotion) frame = window.requestAnimationFrame(draw)
@@ -427,7 +538,11 @@ function LivingField() {
     return () => {
       observer.disconnect()
       canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointerdown', onPointerDown)
+      canvas.removeEventListener('pointerup', onPointerUp)
+      canvas.removeEventListener('pointercancel', releasePointer)
       window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('pointerup', onPointerUp)
       canvas.removeEventListener('pointerleave', onPointerLeave)
       window.cancelAnimationFrame(frame)
     }
