@@ -472,6 +472,26 @@ function LivingField() {
 
       drawAccretionBand(true)
 
+      const applyEdgeFade = (vertical: boolean) => {
+        const gradient = vertical
+          ? context.createLinearGradient(0, 0, 0, height)
+          : context.createLinearGradient(0, 0, width, 0)
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
+        gradient.addColorStop(.12, 'rgba(0, 0, 0, .72)')
+        gradient.addColorStop(.23, 'rgba(0, 0, 0, 1)')
+        gradient.addColorStop(.77, 'rgba(0, 0, 0, 1)')
+        gradient.addColorStop(.88, 'rgba(0, 0, 0, .72)')
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+        context.fillStyle = gradient
+        context.fillRect(0, 0, width, height)
+      }
+
+      context.save()
+      context.globalCompositeOperation = 'destination-in'
+      applyEdgeFade(false)
+      applyEdgeFade(true)
+      context.restore()
+
       pointer.vx *= .89
       pointer.vy *= .89
       scrollVelocity *= .9
