@@ -119,9 +119,30 @@ const projects: Project[] = [
 const navigation = [
   ['Work', '#work'],
   ['About', '#about'],
+  ['Socials', '#socials'],
   ['Notes', '#notes'],
   ['Contact', '#contact'],
 ]
+
+type Theme = 'light' | 'dark'
+
+const themeStorageKey = 'nimbold-theme'
+
+function readStoredTheme(): Theme | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const storedTheme = window.localStorage.getItem(themeStorageKey)
+    return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : null
+  } catch {
+    return null
+  }
+}
+
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  return readStoredTheme() ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+}
 
 const projectScreenshots = {
   firelink: { dark: firelinkDark, light: firelinkLight },
@@ -592,6 +613,7 @@ function App() {
   const [filter, setFilter] = useState<'All' | Project['category']>('All')
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
 
   useEffect(() => {
@@ -616,6 +638,33 @@ function App() {
     }
   }, [previewProject])
 
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.theme = theme
+    root.style.colorScheme = theme
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#111315' : '#f2f1ed')
+  }, [theme])
+
+  useEffect(() => {
+    if (readStoredTheme()) return
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const onSystemThemeChange = (event: MediaQueryListEvent) => setTheme(event.matches ? 'dark' : 'light')
+    mediaQuery.addEventListener('change', onSystemThemeChange)
+    return () => mediaQuery.removeEventListener('change', onSystemThemeChange)
+  }, [])
+
+  const toggleTheme = () => {
+    const nextTheme: Theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(nextTheme)
+
+    try {
+      window.localStorage.setItem(themeStorageKey, nextTheme)
+    } catch {
+      // Keep the toggle usable when browser storage is unavailable.
+    }
+  }
+
   const visibleProjects = filter === 'All' ? projects : projects.filter((project) => project.category === filter)
 
   return (
@@ -625,7 +674,20 @@ function App() {
         <nav className="desktop-nav" aria-label="Main navigation">
           {navigation.map(([name, href]) => <a key={name} href={href}>{name}</a>)}
         </nav>
-        <a className="availability" href="#contact"><i /> Available for select work</a>
+        <div className="header-actions">
+          <a className="availability" href="#contact"><i /> Available for select work</a>
+          <button
+            className="site-theme-toggle"
+            type="button"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            aria-live="polite"
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
+        </div>
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu" aria-expanded={menuOpen}>
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
@@ -695,6 +757,25 @@ function App() {
           <div><Code2 size={21} /><h3>Product engineering</h3><p>From first idea to a polished, usable release.</p></div>
           <div><Layers3 size={21} /><h3>Desktop & web</h3><p>Thoughtful interfaces that connect to robust native systems.</p></div>
           <div><Braces size={21} /><h3>Systems thinking</h3><p>Secure integrations, clear states, and reliable behavior.</p></div>
+        </div>
+      </section>
+
+      <section className="socials section" id="socials">
+        <div className="section-heading compact">
+          <div><p className="eyebrow"><span /> Socials</p><h2>Find me<br /><em>elsewhere.</em></h2></div>
+          <p className="section-note">A few places to follow the work and the thinking behind it.</p>
+        </div>
+        <div className="social-grid">
+          <a className="social-card social-card-x" href="https://x.com/NimBold" target="_blank" rel="noreferrer">
+            <div className="social-card-head"><span className="social-mark" aria-hidden="true">𝕏</span><ArrowUpRight size={18} /></div>
+            <div><p className="social-kicker">Twitter / X</p><h3>@NimBold</h3><p>Thoughts on building software, product details, and the occasional work-in-progress.</p></div>
+            <span className="social-cta">Visit profile <ArrowUpRight size={15} /></span>
+          </a>
+          <a className="social-card social-card-github" href="https://github.com/nimbold" target="_blank" rel="noreferrer">
+            <div className="social-card-head"><Code2 size={23} /><ArrowUpRight size={18} /></div>
+            <div><p className="social-kicker">Open source</p><h3>GitHub / nimbold</h3><p>Source, experiments, and the products I’m actively shaping in public.</p></div>
+            <span className="social-cta">Browse repositories <ArrowUpRight size={15} /></span>
+          </a>
         </div>
       </section>
 
