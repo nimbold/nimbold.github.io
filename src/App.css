@@ -83,3 +83,22 @@ footer { min-height: 95px; padding:0 5.4vw; display:flex; align-items:center; ju
   .social-grid { grid-template-columns:1fr; }
   .social-card { min-height:230px; }
 }
+
+/* TIL is intentionally an empty current-activity surface until the first note is ready. */
+.til-section { background:#1f2430; color:#f4f1eb; display:grid; grid-template-columns:1fr 1fr; gap:9vw; align-items:center; }
+.til-section h2 { font-size:clamp(42px,5.15vw,78px); margin:0; }
+.til-section .eyebrow { color:#b9bac0; }
+.til-empty { border:1px solid rgba(255,255,255,.18); padding:45px; position:relative; }
+.til-empty svg { color:#ff916f; }
+.til-empty h3 { font-size:28px; letter-spacing:-.05em; margin:30px 0 11px; }
+.til-empty p { color:#b9bac0; font-size:14px; line-height:1.65; max-width:350px; }
+.til-empty > span { position:absolute; right:18px; top:18px; font-family:'DM Mono',monospace; font-size:8px; letter-spacing:.1em; color:#818797; }
+[data-theme='dark'] .til-section { background:#151a20; }
+
+@media (max-width:800px) {
+  .til-section { grid-template-columns:1fr; gap:43px; }
+}
+
+@media (max-width:420px) {
+  .til-empty { padding:30px; }
+}

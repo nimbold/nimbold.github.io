@@ -120,7 +120,7 @@ const navigation = [
   ['Work', '#work'],
   ['About', '#about'],
   ['Socials', '#socials'],
-  ['Notes', '#notes'],
+  ['TIL', '#til'],
   ['Contact', '#contact'],
 ]
 
@@ -170,7 +170,9 @@ type FieldParticle = {
   spawnDistance: number
   orbitScale: number
   angularSpeed: number
+  angularMomentum: number
   infallSpeed: number
+  spin: number
   shade: number
 }
 
@@ -191,6 +193,7 @@ function LivingField() {
     let coreX = 0
     let coreY = 0
     let coreRadius = 0
+    let cuspRadius = 0
     let scrollVelocity = 0
     let lastScroll = window.scrollY
     let lastScrollTime = performance.now()
@@ -205,6 +208,7 @@ function LivingField() {
       coreX = width * .53
       coreY = height * .47
       coreRadius = Math.min(width, height) * .185
+      cuspRadius = coreRadius * 1.08
       const nextParticle = (baseX: number, baseY: number, index: number, layer: FieldLayer, intensity: number): FieldParticle => {
         const seed = Math.sin(index * 21.71) * .5 + .5
         const sizeSeed = Math.sin(index * 7.37 + 1.8) * .5 + .5
@@ -227,7 +231,9 @@ function LivingField() {
           spawnDistance: 0,
           orbitScale: .76,
           angularSpeed: 0,
+          angularMomentum: 0,
           infallSpeed: 0,
+          spin: 0,
           shade,
         }
       }
@@ -265,12 +271,14 @@ function LivingField() {
         ))
       }
 
-      const dustCount = 1056
+      const dustCount = 1152
       for (let index = 0; index < dustCount; index += 1) {
         const particleIndex = discCount + haloCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
         const angle = seed * Math.PI * 2 + index * .43
-        const distance = coreRadius * (1.6 + seed * 2.65)
+        // Bias the stream toward the inner disc so the field becomes denser
+        // as it approaches the cusp instead of looking evenly distributed.
+        const distance = coreRadius * (1.14 + Math.pow(seed, 2.05) * 3.2)
         const particle = nextParticle(
           coreX + Math.cos(angle) * distance,
           coreY + Math.sin(angle) * distance * .76,
@@ -280,10 +288,12 @@ function LivingField() {
         )
         particle.angle = angle
         particle.distance = distance
-        particle.spawnDistance = distance * (.92 + particle.shade * .1)
-        particle.orbitScale = .68 + particle.shade * .2
-        particle.angularSpeed = .08 + seed * .08
-        particle.infallSpeed = .55 + seed * .65
+        particle.spawnDistance = distance
+        particle.orbitScale = .66 + particle.shade * .18
+        particle.angularSpeed = .1 + seed * .08
+        particle.angularMomentum = distance * distance * particle.angularSpeed
+        particle.infallSpeed = .18 + seed * .2
+        particle.spin = .025 + seed * .035
         fieldParticles.push(particle)
       }
 
@@ -319,12 +329,26 @@ function LivingField() {
           if (!prefersReducedMotion) {
             const previousX = particle.x
             const previousY = particle.y
-            particle.angle += particle.angularSpeed * gravityStrength * delta
-            particle.distance -= particle.infallSpeed * gravityStrength * delta
+            const gravityRadius = Math.max(particle.distance, cuspRadius)
+            const radiusRatio = coreRadius / gravityRadius
+            const gravitationalPull = Math.min(3.2, .72 * Math.pow(radiusRatio, 1.85))
+            const frameDragging = particle.spin * Math.pow(radiusRatio, 1.55)
 
-            if (particle.distance <= coreRadius * 1.13) {
+            // Angular momentum makes the orbit accelerate inward, while the
+            // inverse-square pull makes the final approach visibly steeper.
+            particle.infallSpeed += gravitationalPull * gravityStrength * delta
+            particle.infallSpeed *= Math.pow(.994, delta * 60)
+            particle.distance -= particle.infallSpeed * gravityStrength * delta
+            particle.angularSpeed = Math.min(
+              3.6,
+              particle.angularMomentum / (gravityRadius * gravityRadius) + frameDragging,
+            )
+            particle.angle += particle.angularSpeed * gravityStrength * delta
+
+            if (particle.distance <= cuspRadius) {
               particle.distance = particle.spawnDistance
-              particle.angle += .35
+              particle.angle += .35 + particle.shade * .45
+              particle.infallSpeed = .18 + particle.shade * .2
             }
 
             particle.x = centerX + Math.cos(particle.angle) * particle.distance
@@ -358,8 +382,14 @@ function LivingField() {
           const flicker = .58 + Math.sin(time * .005 + particle.phase) * .28
           const radius = particle.radius * (layer === 'front' ? 1.2 : 1)
           const infallProgress = layer === 'dust'
-            ? Math.max(0, Math.min(1, (particle.distance - coreRadius * 1.13) / (particle.spawnDistance - coreRadius * 1.13)))
-            : 1
+            ? Math.max(0, Math.min(1, (particle.distance - cuspRadius) / (particle.spawnDistance - cuspRadius)))
+            : 0
+          const distanceProximity = layer === 'dust'
+            ? Math.max(0, Math.min(1, 1 - (particle.distance - cuspRadius) / (coreRadius * 2.6)))
+            : 0
+          const cuspProximity = layer === 'dust' ? Math.max(1 - infallProgress, distanceProximity) : 0
+          const particleRadius = radius * (1 + cuspProximity * .7)
+          const streakLength = layer === 'dust' ? 1.1 + cuspProximity * 2.6 : 1
           const dustRgb = particle.shade > .78
             ? '214, 150, 88'
             : particle.shade > .5
@@ -373,21 +403,23 @@ function LivingField() {
               ? `rgba(166, 91, 54, ${particle.intensity * flicker * .3})`
               : layer === 'halo'
                 ? `rgba(236, 157, 87, ${particle.intensity * flicker * .68})`
-                : `rgba(${dustRgb}, ${particle.intensity * flicker * (.28 + infallProgress * .72)})`
+                : `rgba(${dustRgb}, ${particle.intensity * flicker * (.32 + cuspProximity * 1.25)})`
 
           context.save()
           context.translate(particle.x, particle.y)
-          context.rotate(Math.atan2(particle.vy, particle.vx) + (layer === 'dust' ? 0 : -.3))
+          context.rotate(Math.atan2(particle.vy, particle.vx) + (layer === 'dust' ? -.2 : -.3))
           context.fillStyle = color
-          if (layer === 'front' || layer === 'halo' || (layer === 'dust' && particle.shade > .78 && particle.radius > 1.4)) {
+          if (layer === 'front' || layer === 'halo' || (layer === 'dust' && (particle.shade > .78 || cuspProximity > .72) && particle.radius > 1.1)) {
             context.shadowColor = 'rgba(236, 135, 72, .45)'
-            context.shadowBlur = layer === 'dust' ? 3 + particle.intensity * 4 : 4 + particle.intensity * 7
+            context.shadowBlur = layer === 'dust'
+              ? 3 + particle.intensity * (4 + cuspProximity * 8)
+              : 4 + particle.intensity * 7
           }
           context.beginPath()
           if (layer === 'back' || layer === 'front') {
             context.ellipse(0, 0, radius * 1.8, radius * .34, 0, 0, Math.PI * 2)
           } else if (layer === 'dust') {
-            context.arc(0, 0, radius, 0, Math.PI * 2)
+            context.ellipse(0, 0, particleRadius * streakLength, particleRadius * .62, 0, 0, Math.PI * 2)
           } else {
             context.ellipse(0, 0, radius, radius * .72, 0, 0, Math.PI * 2)
           }
@@ -721,7 +753,7 @@ function App() {
       <section className="hero" id="top">
         <div className="hero-glow glow-one" />
         <div className="hero-copy reveal">
-          <p className="eyebrow"><span /> Independent developer · Iran</p>
+          <p className="eyebrow"><span /> Independent developer</p>
           <h1>Building quiet,<br /><em>useful</em> software.</h1>
           <p className="hero-summary">I design and build thoughtful tools at the intersection of product craft, dependable systems, and everyday life.</p>
           <div className="hero-actions">
@@ -809,9 +841,9 @@ function App() {
         </div>
       </section>
 
-      <section className="notes section" id="notes">
-        <div><p className="eyebrow"><span /> Notes & writing</p><h2>Ideas worth<br />keeping close.</h2></div>
-        <div className="notes-empty"><Sparkles size={25} /><h3>Writing is coming soon.</h3><p>Notes on building products, software craft, and the occasional thing I’ve learned the hard way.</p><span>IN THE WORKS</span></div>
+      <section className="til-section section" id="til">
+        <div><p className="eyebrow"><span /> TIL · Today I learned</p><h2>Small lessons.<br /><em>Kept close.</em></h2></div>
+        <div className="til-empty"><Sparkles size={25} /><h3>No notes yet.</h3><p>A quiet place for short, practical things I learn while building.</p><span>EMPTY FOR NOW</span></div>
       </section>
 
       <section className="contact" id="contact">
