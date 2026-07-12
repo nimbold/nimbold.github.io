@@ -173,6 +173,7 @@ type FieldParticle = {
   angularMomentum: number
   infallSpeed: number
   spin: number
+  heat: number
   shade: number
 }
 
@@ -234,6 +235,7 @@ function LivingField() {
           angularMomentum: 0,
           infallSpeed: 0,
           spin: 0,
+          heat: 0,
           shade,
         }
       }
@@ -322,13 +324,9 @@ function LivingField() {
         + pointerProximity * .9
         + holdProgress * (2.6 + pointerProximity * 1.5)
       gravityStrength += (targetGravityStrength - gravityStrength) * Math.min(1, delta * 5.5)
-      const safeDelta = Math.max(delta, .001)
-
       particles.forEach((particle) => {
         if (particle.layer === 'dust') {
           if (!prefersReducedMotion) {
-            const previousX = particle.x
-            const previousY = particle.y
             const gravityRadius = Math.max(particle.distance, cuspRadius)
             const radiusRatio = coreRadius / gravityRadius
             const gravitationalPull = Math.min(3.2, .72 * Math.pow(radiusRatio, 1.85))
@@ -353,8 +351,6 @@ function LivingField() {
 
             particle.x = centerX + Math.cos(particle.angle) * particle.distance
             particle.y = centerY + Math.sin(particle.angle) * particle.distance * particle.orbitScale + scrollVelocity * .006
-            particle.vx = (particle.x - previousX) / safeDelta
-            particle.vy = (particle.y - previousY) / safeDelta
           }
           return
         }
@@ -379,17 +375,22 @@ function LivingField() {
 
       const drawLayer = (layer: 'back' | 'front' | 'halo' | 'dust') => {
         particles.filter((particle) => particle.layer === layer).forEach((particle) => {
-          const flicker = .58 + Math.sin(time * .005 + particle.phase) * .28
+          const flicker = layer === 'dust'
+            ? .78 + Math.sin(time * .005 + particle.phase) * .1
+            : .58 + Math.sin(time * .005 + particle.phase) * .28
           const radius = particle.radius * (layer === 'front' ? 1.2 : 1)
-          const infallProgress = layer === 'dust'
-            ? Math.max(0, Math.min(1, (particle.distance - cuspRadius) / (particle.spawnDistance - cuspRadius)))
-            : 0
-          const distanceProximity = layer === 'dust'
+          const targetHeat = layer === 'dust'
             ? Math.max(0, Math.min(1, 1 - (particle.distance - cuspRadius) / (coreRadius * 2.6)))
             : 0
-          const cuspProximity = layer === 'dust' ? Math.max(1 - infallProgress, distanceProximity) : 0
-          const particleRadius = radius * (1 + cuspProximity * .7)
-          const streakLength = layer === 'dust' ? 1.1 + cuspProximity * 2.6 : 1
+          const heatResponse = prefersReducedMotion ? 1 : Math.min(1, delta * 12)
+          particle.heat += (targetHeat - particle.heat) * heatResponse
+          const cuspProximity = particle.heat
+          const particleRadius = radius * (1 + cuspProximity * .42)
+          const streakLength = layer === 'dust' ? 1.1 + cuspProximity * 1.7 : 1
+          const dustHeading = layer === 'dust'
+            ? Math.atan2(Math.cos(particle.angle) * particle.orbitScale, -Math.sin(particle.angle))
+            : 0
+          const heading = layer === 'dust' ? dustHeading : Math.atan2(particle.vy, particle.vx)
           const dustRgb = particle.shade > .78
             ? '214, 150, 88'
             : particle.shade > .5
@@ -407,7 +408,7 @@ function LivingField() {
 
           context.save()
           context.translate(particle.x, particle.y)
-          context.rotate(Math.atan2(particle.vy, particle.vx) + (layer === 'dust' ? -.2 : -.3))
+          context.rotate(heading + (layer === 'dust' ? -.2 : -.3))
           context.fillStyle = color
           if (layer === 'front' || layer === 'halo' || (layer === 'dust' && (particle.shade > .78 || cuspProximity > .72) && particle.radius > 1.1)) {
             context.shadowColor = 'rgba(236, 135, 72, .45)'
