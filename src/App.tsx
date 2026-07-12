@@ -174,6 +174,7 @@ type FieldParticle = {
   infallSpeed: number
   spin: number
   heat: number
+  opacity: number
   shade: number
 }
 
@@ -236,6 +237,7 @@ function LivingField() {
           infallSpeed: 0,
           spin: 0,
           heat: 0,
+          opacity: 1,
           shade,
         }
       }
@@ -273,7 +275,7 @@ function LivingField() {
         ))
       }
 
-      const dustCount = 1152
+      const dustCount = 768
       for (let index = 0; index < dustCount; index += 1) {
         const particleIndex = discCount + haloCount + index
         const seed = Math.sin(particleIndex * 21.71) * .5 + .5
@@ -347,6 +349,8 @@ function LivingField() {
               particle.distance = particle.spawnDistance
               particle.angle += .35 + particle.shade * .45
               particle.infallSpeed = .18 + particle.shade * .2
+              // Hide the discontinuous respawn at the outer edge of the stream.
+              particle.opacity = 0
             }
 
             particle.x = centerX + Math.cos(particle.angle) * particle.distance
@@ -374,7 +378,9 @@ function LivingField() {
       pointer.activity *= Math.pow(.055, delta)
 
       const drawLayer = (layer: 'back' | 'front' | 'halo' | 'dust') => {
-        particles.filter((particle) => particle.layer === layer).forEach((particle) => {
+        particles.forEach((particle) => {
+          if (particle.layer !== layer) return
+
           const flicker = layer === 'dust'
             ? .78 + Math.sin(time * .005 + particle.phase) * .1
             : .58 + Math.sin(time * .005 + particle.phase) * .28
@@ -384,7 +390,11 @@ function LivingField() {
             : 0
           const heatResponse = prefersReducedMotion ? 1 : Math.min(1, delta * 12)
           particle.heat += (targetHeat - particle.heat) * heatResponse
+          if (layer === 'dust') {
+            particle.opacity += (1 - particle.opacity) * (prefersReducedMotion ? 1 : Math.min(1, delta * 10))
+          }
           const cuspProximity = particle.heat
+          const opacity = layer === 'dust' ? particle.opacity : 1
           const particleRadius = radius * (1 + cuspProximity * .42)
           const streakLength = layer === 'dust' ? 1.1 + cuspProximity * 1.7 : 1
           const dustHeading = layer === 'dust'
@@ -404,13 +414,13 @@ function LivingField() {
               ? `rgba(166, 91, 54, ${particle.intensity * flicker * .3})`
               : layer === 'halo'
                 ? `rgba(236, 157, 87, ${particle.intensity * flicker * .68})`
-                : `rgba(${dustRgb}, ${particle.intensity * flicker * (.32 + cuspProximity * 1.25)})`
+                : `rgba(${dustRgb}, ${particle.intensity * flicker * (.32 + cuspProximity * 1.25) * opacity})`
 
           context.save()
           context.translate(particle.x, particle.y)
           context.rotate(heading + (layer === 'dust' ? -.2 : -.3))
           context.fillStyle = color
-          if (layer === 'front' || layer === 'halo' || (layer === 'dust' && (particle.shade > .78 || cuspProximity > .72) && particle.radius > 1.1)) {
+          if (layer === 'front' || layer === 'halo' || (layer === 'dust' && particle.shade > .9 && cuspProximity > .35 && particle.radius > 1.1)) {
             context.shadowColor = 'rgba(236, 135, 72, .45)'
             context.shadowBlur = layer === 'dust'
               ? 3 + particle.intensity * (4 + cuspProximity * 8)
@@ -539,7 +549,7 @@ function LivingField() {
       const rect = canvas.getBoundingClientRect()
       width = Math.max(1, rect.width)
       height = Math.max(1, rect.height)
-      pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
       canvas.width = Math.round(width * pixelRatio)
       canvas.height = Math.round(height * pixelRatio)
       buildParticles()
