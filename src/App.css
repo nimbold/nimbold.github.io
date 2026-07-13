@@ -84,21 +84,58 @@ footer { min-height: 95px; padding:0 5.4vw; display:flex; align-items:center; ju
   .social-card { min-height:230px; }
 }
 
-/* TIL is intentionally an empty current-activity surface until the first note is ready. */
-.til-section { background:#1f2430; color:#f4f1eb; display:grid; grid-template-columns:1fr 1fr; gap:9vw; align-items:center; }
+/* TIL uses a compact feed card for scanning, then a focused reading surface for the full note. */
+.til-section { background:#1f2430; color:#f4f1eb; display:grid; grid-template-columns:.82fr 1.18fr; gap:9vw; align-items:center; }
 .til-section h2 { font-size:clamp(42px,5.15vw,78px); margin:0; }
 .til-section .eyebrow { color:#b9bac0; }
-.til-empty { border:1px solid rgba(255,255,255,.18); padding:45px; position:relative; }
-.til-empty svg { color:#ff916f; }
-.til-empty h3 { font-size:28px; letter-spacing:-.05em; margin:30px 0 11px; }
-.til-empty p { color:#b9bac0; font-size:14px; line-height:1.65; max-width:350px; }
-.til-empty > span { position:absolute; right:18px; top:18px; font-family:'DM Mono',monospace; font-size:8px; letter-spacing:.1em; color:#818797; }
+.til-heading-note { max-width:265px; margin:27px 0 0; color:#b9bac0; font-size:14px; line-height:1.65; }
+.til-card { border:1px solid rgba(255,255,255,.2); padding:30px 32px 26px; background:rgba(255,255,255,.055); box-shadow:0 20px 45px rgba(4,7,13,.18); transition:transform .3s ease, border-color .3s ease, background .3s ease; }
+.til-card:hover { transform:translateY(-5px); border-color:rgba(255,145,111,.7); background:rgba(255,255,255,.075); }
+.til-card-topline,.til-card-footer,.til-meta { display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.til-card-topline,.til-meta,.til-card-footer { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:#969ba8; }
+.til-card-label { display:inline-flex; align-items:center; gap:8px; color:#ff916f; }
+.til-card h3 { max-width:600px; margin:29px 0 15px; font-size:clamp(27px,3vw,43px); line-height:1.02; letter-spacing:-.06em; }
+.til-summary { max-width:620px; margin:0 0 25px; color:#d3d2d0; font-size:14px; line-height:1.65; }
+.til-meta { justify-content:flex-start; padding-bottom:23px; border-bottom:1px solid rgba(255,255,255,.14); }
+.til-meta > span { display:inline-flex; align-items:center; gap:7px; }
+.til-meta svg { color:#ff916f; }
+.til-meta ul,.til-dialog-tags { display:flex; flex-wrap:wrap; gap:6px; padding:0; margin:0; list-style:none; }
+.til-meta li,.til-dialog-tags li { padding:5px 7px; color:#d2d1ce; background:rgba(255,255,255,.08); }
+.til-card-footer { padding-top:20px; }
+.til-read-button { display:inline-flex; align-items:center; gap:7px; padding:0 0 4px; border:0; border-bottom:1px solid currentColor; background:none; color:#fff; cursor:pointer; font:600 11px 'DM Sans',sans-serif; letter-spacing:0; text-transform:none; transition:color .2s ease, transform .2s ease; }
+.til-read-button:hover { color:#ff916f; transform:translateX(3px); }
+.til-backdrop { position:fixed; z-index:40; inset:0; display:grid; place-items:center; padding:24px; background:rgba(5,8,13,.68); backdrop-filter:blur(16px) saturate(120%); animation:backdrop-in .26s ease both; }
+.til-dialog { position:relative; width:min(900px,100%); max-height:min(820px,calc(100vh - 48px)); overflow:auto; padding:clamp(31px,5vw,62px); border:1px solid rgba(255,255,255,.17); background:rgba(27,32,42,.96); color:#f4f1eb; box-shadow:0 30px 90px rgba(0,0,0,.42); animation:preview-in .42s cubic-bezier(.22,.8,.28,1) both; }
+.til-close { border-color:rgba(255,255,255,.2); color:#f4f1eb; }
+.til-close:hover { background:#f4f1eb; color:#1b1a19; }
+.til-dialog-header { padding-bottom:34px; border-bottom:1px solid rgba(255,255,255,.14); }
+.til-dialog-header .eyebrow { margin-bottom:20px; color:#aeb3bd; }
+.til-dialog-header h2 { max-width:720px; margin:0 0 18px; font-size:clamp(42px,6vw,74px); line-height:.96; }
+.til-dialog-header > p:not(.eyebrow) { max-width:650px; margin:0 0 23px; color:#c2c4c5; font-size:15px; line-height:1.65; }
+.til-dialog-tags li { color:#e1dfda; background:rgba(255,255,255,.1); }
+.til-lessons { display:grid; grid-template-columns:repeat(2,1fr); gap:0 48px; padding:33px 0 37px; }
+.til-lesson { display:grid; grid-template-columns:28px 1fr; gap:12px; padding:21px 0; border-bottom:1px solid rgba(255,255,255,.11); }
+.til-lesson-number { color:#ff916f; font:500 10px 'DM Mono',monospace; letter-spacing:.08em; }
+.til-lesson h3 { margin:0 0 8px; color:#f5f1e9; font-size:15px; letter-spacing:-.025em; }
+.til-lesson p { margin:0; color:#bdc0c2; font-size:13px; line-height:1.6; }
+.til-lesson code { display:block; margin-top:11px; padding:10px 11px; overflow:auto; color:#f8c19c; background:rgba(0,0,0,.24); font:11px/1.45 'DM Mono',monospace; }
+.til-takeaway { padding:24px 0 0; border-top:1px solid rgba(255,255,255,.17); }
+.til-takeaway span { color:#ff916f; font:9px 'DM Mono',monospace; letter-spacing:.11em; text-transform:uppercase; }
+.til-takeaway p { max-width:700px; margin:13px 0 0; color:#f0ede7; font-size:18px; line-height:1.45; letter-spacing:-.025em; }
 [data-theme='dark'] .til-section { background:#151a20; }
 
 @media (max-width:800px) {
   .til-section { grid-template-columns:1fr; gap:43px; }
+  .til-card { padding:25px 23px 22px; }
+  .til-card h3 { margin-top:24px; }
+  .til-card-footer { align-items:flex-start; flex-direction:column; gap:16px; }
+  .til-backdrop { padding:12px; }
+  .til-dialog { max-height:calc(100vh - 24px); padding:38px 25px 30px; }
+  .til-lessons { grid-template-columns:1fr; padding-top:23px; }
 }
 
 @media (max-width:420px) {
-  .til-empty { padding:30px; }
+  .til-card-topline { align-items:flex-start; flex-direction:column; gap:9px; }
+  .til-meta { align-items:flex-start; flex-direction:column; }
+  .til-dialog-header h2 { font-size:42px; }
 }
