@@ -131,71 +131,109 @@ type TilPost = {
   summary: string
   readTime: string
   tags: string[]
+  contextLabel: string
   lessons: TilLesson[]
   takeaway: string
 }
 
-const tilPost: TilPost = {
-  id: 'aria2-download-lifecycle',
-  date: '2026-07-13',
-  displayDate: '13 Jul 2026',
-  title: 'Reliable Aria2 downloads are lifecycles, not RPC calls.',
-  summary: 'An Aria2 audit made one thing clear: a download needs its own stable identity across retries, events, async work, and UI state.',
-  readTime: '6 min read',
-  tags: ['Aria2', 'Concurrency', 'Rust'],
-  lessons: [
-    {
-      title: 'A GID is not a download identity',
-      body: 'A retry creates a new GID. Track the download with your own stable ID, mapped to the current GID and lifecycle epoch.',
-    },
-    {
-      title: 'Cancellation needs a generation',
-      body: 'A cancelled worker can wake after cancellation is cleared for a new attempt. Pair cancellation with a monotonically increasing generation or epoch.',
-    },
-    {
-      title: 'Revalidate every async result',
-      body: 'After an await, the world may have changed. Before applying a result, confirm that the operation still belongs to the current lifecycle.',
-    },
-    {
-      title: 'addUri only means accepted',
-      body: 'Aria2 returning from addUri means it accepted the job, not that it finished. Keep the permit, mapping, retry state, and UI lifecycle active until a terminal event.',
-    },
-    {
-      title: 'Events can beat registration',
-      body: 'Aria2 may emit an error or completion before Firelink stores the returned GID. Buffer early events and reconcile them atomically when registration finishes.',
-    },
-    {
-      title: 'Buffering and mapping need one lock',
-      body: 'The GID map and early-event buffer must share synchronization, or an event can slip between the “unknown GID” check and the registration drain.',
-      code: 'check: GID unknown → register + drain → event buffers',
-    },
-    {
-      title: 'Control operations are still concurrency',
-      body: 'Pause, resume, retry, refresh, and completion can issue contradictory RPCs when they overlap. A per-download mutex serializes one download without blocking others.',
-    },
-    {
-      title: 'Retry events must be idempotent',
-      body: 'Reconnects, polling, and Aria2 notifications can report the same failure more than once. Deduplicate retry workers by download ID and lifecycle.',
-    },
-    {
-      title: 'Permits have exactly-once ownership',
-      body: 'Every active Aria2 download owns one permit. Terminal paths release it once; stale paths release it zero times.',
-    },
-    {
-      title: 'UI state is concurrent state',
-      body: 'A delayed Downloading update can overwrite a newer Paused, Completed, or Failed state. Emit transitional UI states only after confirming the lifecycle is current.',
-    },
-    {
-      title: 'Old GIDs must lose authority',
-      body: 'A terminal event from a failed GID must not release a permit or complete the replacement GID’s lifecycle after a retry starts.',
-    },
-    {
-      title: 'Worst-case tests teach the system',
-      body: 'The valuable tests are the races: pause during addUri, resume during retry backoff, duplicate errors, completion during handoff, stale GIDs, and RPC failure before registration.',
-    },
-  ],
-  takeaway: 'Every async operation, event, retry, permit, and UI update should carry enough identity information to prove it still belongs to the current download lifecycle.',
-}
+const tilPosts: TilPost[] = [
+  {
+    id: 'metadata-first-divergence',
+    date: '2026-07-14',
+    displayDate: '14 Jul 2026',
+    title: 'Find the first divergence, not the loudest error.',
+    summary: 'When the same URL succeeds through paste but falls into Fallback through the browser, compare inputs at every boundary before blaming the final subsystem.',
+    readTime: '4 min read',
+    tags: ['Debugging', 'HTTP', 'Browser Handoff'],
+    contextLabel: '5 lessons from issue #16',
+    lessons: [
+      {
+        title: 'The same URL can be different input',
+        body: 'Extension capture included browser cookies and headers; manual paste included neither. Compare the request context, not just the visible URL.',
+      },
+      {
+        title: 'The earliest failure beats the last symptom',
+        body: 'The metadata request failed before format resolution, queueing, or the download engine. “Fallback” was only where the earlier failure became visible.',
+      },
+      {
+        title: 'Public resources should not inherit browser auth',
+        body: 'A large captured cookie header made requests for a public resource fail. Authentication should be an explicit escalation, not the default probe.',
+      },
+      {
+        title: 'Escalate authentication only when challenged',
+        body: 'Probe without cookies first, retry once only after an explicit 401 or 403, then preserve cookies for the actual authenticated download.',
+        code: 'probe: no cookies → 401/403 → one cookie retry → bounded handoff',
+      },
+      {
+        title: 'Reset per-attempt state deliberately',
+        body: 'Retries must stay bounded, and redirect state should reset safely for each attempt so one failed path cannot contaminate the next.',
+      },
+    ],
+    takeaway: 'Follow the data and state transitions until you find the earliest point where the failing and working paths diverge.',
+  },
+  {
+    id: 'aria2-download-lifecycle',
+    date: '2026-07-13',
+    displayDate: '13 Jul 2026',
+    title: 'Reliable Aria2 downloads are lifecycles, not RPC calls.',
+    summary: 'An Aria2 audit made one thing clear: a download needs its own stable identity across retries, events, async work, and UI state.',
+    readTime: '6 min read',
+    tags: ['Aria2', 'Concurrency', 'Rust'],
+    contextLabel: '12 lessons from a concurrency audit',
+    lessons: [
+      {
+        title: 'A GID is not a download identity',
+        body: 'A retry creates a new GID. Track the download with your own stable ID, mapped to the current GID and lifecycle epoch.',
+      },
+      {
+        title: 'Cancellation needs a generation',
+        body: 'A cancelled worker can wake after cancellation is cleared for a new attempt. Pair cancellation with a monotonically increasing generation or epoch.',
+      },
+      {
+        title: 'Revalidate every async result',
+        body: 'After an await, the world may have changed. Before applying a result, confirm that the operation still belongs to the current lifecycle.',
+      },
+      {
+        title: 'addUri only means accepted',
+        body: 'Aria2 returning from addUri means it accepted the job, not that it finished. Keep the permit, mapping, retry state, and UI lifecycle active until a terminal event.',
+      },
+      {
+        title: 'Events can beat registration',
+        body: 'Aria2 may emit an error or completion before Firelink stores the returned GID. Buffer early events and reconcile them atomically when registration finishes.',
+      },
+      {
+        title: 'Buffering and mapping need one lock',
+        body: 'The GID map and early-event buffer must share synchronization, or an event can slip between the “unknown GID” check and the registration drain.',
+        code: 'check: GID unknown → register + drain → event buffers',
+      },
+      {
+        title: 'Control operations are still concurrency',
+        body: 'Pause, resume, retry, refresh, and completion can issue contradictory RPCs when they overlap. A per-download mutex serializes one download without blocking others.',
+      },
+      {
+        title: 'Retry events must be idempotent',
+        body: 'Reconnects, polling, and Aria2 notifications can report the same failure more than once. Deduplicate retry workers by download ID and lifecycle.',
+      },
+      {
+        title: 'Permits have exactly-once ownership',
+        body: 'Every active Aria2 download owns one permit. Terminal paths release it once; stale paths release it zero times.',
+      },
+      {
+        title: 'UI state is concurrent state',
+        body: 'A delayed Downloading update can overwrite a newer Paused, Completed, or Failed state. Emit transitional UI states only after confirming the lifecycle is current.',
+      },
+      {
+        title: 'Old GIDs must lose authority',
+        body: 'A terminal event from a failed GID must not release a permit or complete the replacement GID’s lifecycle after a retry starts.',
+      },
+      {
+        title: 'Worst-case tests teach the system',
+        body: 'The valuable tests are the races: pause during addUri, resume during retry backoff, duplicate errors, completion during handoff, stale GIDs, and RPC failure before registration.',
+      },
+    ],
+    takeaway: 'Every async operation, event, retry, permit, and UI update should carry enough identity information to prove it still belongs to the current download lifecycle.',
+  },
+]
 
 const navigation = [
   ['Work', '#work'],
@@ -753,7 +791,7 @@ function App() {
   const [scrolled, setScrolled] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
-  const [tilOpen, setTilOpen] = useState(false)
+  const [tilOpen, setTilOpen] = useState<TilPost | null>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -781,7 +819,7 @@ function App() {
     if (!tilOpen) return
 
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setTilOpen(false)
+      if (event.key === 'Escape') setTilOpen(null)
     }
     const previousOverflow = document.body.style.overflow
 
@@ -945,26 +983,30 @@ function App() {
 
       <section className="til-section section" id="til">
         <div className="til-heading"><p className="eyebrow"><span /> TIL · Today I learned</p><h2>Small lessons.<br /><em>Kept close.</em></h2><p className="til-heading-note">Short, practical notes from the work behind the work.</p></div>
-        <article className="til-card" aria-labelledby="til-card-title">
-          <div className="til-card-topline">
-            <span className="til-card-label"><BookOpen size={14} /> Note 01</span>
-            <time dateTime={tilPost.date}>{tilPost.displayDate}</time>
-          </div>
-          <h3 id="til-card-title">{tilPost.title}</h3>
-          <p className="til-summary">{tilPost.summary}</p>
-          <div className="til-meta">
-            <span><Clock3 size={14} /> {tilPost.readTime}</span>
-            <ul aria-label="TIL topics">
-              {tilPost.tags.map((tag) => <li key={tag}>{tag}</li>)}
-            </ul>
-          </div>
-          <div className="til-card-footer">
-            <span>{tilPost.lessons.length} lessons from a concurrency audit</span>
-            <button className="til-read-button" type="button" onClick={() => setTilOpen(true)}>
-              Read the note <ArrowUpRight size={16} />
-            </button>
-          </div>
-        </article>
+        <div className="til-feed">
+          {tilPosts.map((tilPost, index) => (
+            <article className="til-card" key={tilPost.id} aria-labelledby={`til-card-title-${tilPost.id}`}>
+              <div className="til-card-topline">
+                <span className="til-card-label"><BookOpen size={14} /> Note {String(index + 1).padStart(2, '0')}</span>
+                <time dateTime={tilPost.date}>{tilPost.displayDate}</time>
+              </div>
+              <h3 id={`til-card-title-${tilPost.id}`}>{tilPost.title}</h3>
+              <p className="til-summary">{tilPost.summary}</p>
+              <div className="til-meta">
+                <span><Clock3 size={14} /> {tilPost.readTime}</span>
+                <ul aria-label={`${tilPost.title} topics`}>
+                  {tilPost.tags.map((tag) => <li key={tag}>{tag}</li>)}
+                </ul>
+              </div>
+              <div className="til-card-footer">
+                <span>{tilPost.contextLabel}</span>
+                <button className="til-read-button" type="button" onClick={() => setTilOpen(tilPost)}>
+                  Read the note <ArrowUpRight size={16} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="contact" id="contact">
@@ -1013,19 +1055,19 @@ function App() {
       )}
 
       {tilOpen && (
-        <div className="til-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setTilOpen(false) }}>
+        <div className="til-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setTilOpen(null) }}>
           <article className="til-dialog" role="dialog" aria-modal="true" aria-labelledby="til-dialog-title" aria-describedby="til-dialog-summary">
-            <button className="preview-close til-close" type="button" onClick={() => setTilOpen(false)} aria-label="Close TIL note" autoFocus><X size={20} /></button>
+            <button className="preview-close til-close" type="button" onClick={() => setTilOpen(null)} aria-label="Close TIL note" autoFocus><X size={20} /></button>
             <header className="til-dialog-header">
-              <p className="eyebrow"><span /> {tilPost.displayDate} · {tilPost.readTime}</p>
-              <h2 id="til-dialog-title">{tilPost.title}</h2>
-              <p id="til-dialog-summary">{tilPost.summary}</p>
+              <p className="eyebrow"><span /> {tilOpen.displayDate} · {tilOpen.readTime}</p>
+              <h2 id="til-dialog-title">{tilOpen.title}</h2>
+              <p id="til-dialog-summary">{tilOpen.summary}</p>
               <ul className="til-dialog-tags" aria-label="TIL topics">
-                {tilPost.tags.map((tag) => <li key={tag}>{tag}</li>)}
+                {tilOpen.tags.map((tag) => <li key={tag}>{tag}</li>)}
               </ul>
             </header>
             <div className="til-lessons">
-              {tilPost.lessons.map((lesson, index) => (
+              {tilOpen.lessons.map((lesson, index) => (
                 <article className="til-lesson" key={lesson.title}>
                   <span className="til-lesson-number">{String(index + 1).padStart(2, '0')}</span>
                   <div>
@@ -1038,7 +1080,7 @@ function App() {
             </div>
             <footer className="til-takeaway">
               <span>Broad lesson</span>
-              <p>{tilPost.takeaway}</p>
+              <p>{tilOpen.takeaway}</p>
             </footer>
           </article>
         </div>
