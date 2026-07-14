@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -11,6 +11,7 @@ import {
   Menu,
   MoveRight,
   Moon,
+  Search,
   Sun,
   X,
 } from 'lucide-react'
@@ -117,10 +118,14 @@ const projects: Project[] = [
   },
 ]
 
-type TilLesson = {
-  title: string
-  body: string
+type TilSection = {
+  heading: string
+  paragraphs: string[]
+  bullets?: string[]
+  steps?: string[]
   code?: string
+  quotes?: string[]
+  callouts?: { label: string; text: string }[]
 }
 
 type TilPost = {
@@ -132,116 +137,84 @@ type TilPost = {
   readTime: string
   tags: string[]
   contextLabel: string
-  lessons: TilLesson[]
-  takeaway: string
+  sections: TilSection[]
 }
 
 const tilPosts: TilPost[] = [
   {
-    id: 'metadata-first-divergence',
+    id: 'review-behavior-not-commits',
     date: '2026-07-14',
     displayDate: '14 Jul 2026',
-    title: 'Find the first divergence, not the loudest error.',
-    summary: 'When the same URL succeeds through paste but falls into Fallback through the browser, compare inputs at every boundary before blaming the final subsystem.',
-    readTime: '4 min read',
-    tags: ['Debugging', 'HTTP', 'Browser Handoff'],
-    contextLabel: '5 lessons from issue #16',
-    lessons: [
+    title: 'TIL: A good review follows behavior, not just commits.',
+    summary: 'While working on Firelink, I learned that trustworthy review starts with behavior and invariants: map the blast radius, verify platform claims, consult narrowly, and fix only evidence-backed failures.',
+    readTime: '7 min read',
+    tags: ['Firelink', 'Code Review', 'Dependencies', 'Security'],
+    contextLabel: 'Firelink · review practice',
+    sections: [
       {
-        title: 'The same URL can be different input',
-        body: 'Extension capture included browser cookies and headers; manual paste included neither. Compare the request context, not just the visible URL.',
+        heading: 'Programmer’s mindset',
+        paragraphs: ['The most useful shift was treating review as an investigation into behavior, not a ceremony around commits.'],
+        bullets: [
+          '“Review the commits” can mean reviewing the actual code changes, not just Git history. Clarify the scope early and inspect the last behavioral changes, especially when the current diff is only dependency metadata.',
+          'Dependency updates are runtime changes. Their blast radius includes direct APIs and feature flags, transitive crates and packages, lockfiles, compiler behavior, packaging and sidecars, OS-specific implementations, concurrency, and security behavior.',
+          'A lockfile is part of the product. Updating Cargo.toml or package.json without understanding lockfile removals and additions can hide meaningful behavior changes.',
+          '“Works on my machine” is narrower than “cross-platform works.” Local macOS tests proved host compatibility, but missing Windows MSVC and Linux GTK/WebKit environments prevented true cross-target compilation.',
+          'Worst-case review should follow state transitions, not just functions. Ask what happens if completion races with pause, a stale event arrives after retry, a process exits while a file is locked, a redirect crosses hosts, an old extension sends unsafe data, or an RPC result is ambiguous.',
+          'Security boundaries should be enforced at multiple layers. Media cookies were filtered in the desktop server and guarded again before metadata handling; defense in depth makes old clients less dangerous.',
+          '“No bug found” is a valid engineering result. Do not add speculative retries or behavior changes merely because an unusual scenario can be imagined. Require evidence, a violated invariant, or a reproducible failure.',
+          'Tests should mirror failure modes. The queue tests were valuable because they covered stale events, duplicate terminal events, late GIDs, permit leaks, retry races, and lifecycle epochs.',
+          'An issue reference should be truthful. When no dependency-specific issue existed, using “Refs #16” was safer than falsely claiming the dependency update fixed or closed that issue.',
+        ],
       },
       {
-        title: 'The earliest failure beats the last symptom',
-        body: 'The metadata request failed before format resolution, queueing, or the download engine. “Fallback” was only where the earlier failure became visible.',
+        heading: 'Guiding LLMs effectively',
+        paragraphs: ['The model became more useful when the task was framed as an evidence-gathering workflow with explicit boundaries.'],
+        callouts: [
+          { label: 'Scope', text: 'Review behavioral code changes, not only Git commits. Include normal usage, worst-case scenarios, races, security boundaries, and cross-platform behavior.' },
+          { label: 'Investigation', text: 'First inspect the live repository, issue history, tests, and actual runtime paths. Do not rely on summaries or assumptions. Report findings before editing.' },
+          { label: 'Decision standard', text: 'Only fix issues supported by code evidence, tests, logs, or a reproducible failure. Do not add speculative retries, fallbacks, or compatibility hacks.' },
+          { label: 'Second opinions', text: 'Scan only these files and this diff. Do not edit, commit, push, or inspect secrets. Return each finding with severity, affected path, reasoning, and evidence.' },
+          { label: 'Untrusted output', text: 'Treat the consultant’s findings as untrusted hypotheses. Verify every actionable claim against the live code and tests before changing anything.' },
+          { label: 'Blast radius', text: 'For every proposed update, identify direct API changes, transitive dependency changes, platform-specific behavior, packaging impact, security implications, and race-condition risks.' },
+          { label: 'Validation', text: 'Report separately: unit tests, integration tests, build checks, packaging checks, security checks, and cross-platform checks. Do not call host-only validation cross-platform validation.' },
+          { label: 'Git', text: 'Stage only these files, use a Conventional Commit, mention issue #N without falsely closing it, push directly to origin main, then verify local and remote hashes.' },
+          { label: 'Negative evidence', text: 'State what you inspected, what failure modes were considered, what was not reproducible, and why no code change is justified.' },
+        ],
       },
       {
-        title: 'Public resources should not inherit browser auth',
-        body: 'A large captured cookie header made requests for a public resource fail. Authentication should be an explicit escalation, not the default probe.',
-      },
-      {
-        title: 'Escalate authentication only when challenged',
-        body: 'Probe without cookies first, retry once only after an explicit 401 or 403, then preserve cookies for the actual authenticated download.',
-        code: 'probe: no cookies → 401/403 → one cookie retry → bounded handoff',
-      },
-      {
-        title: 'Reset per-attempt state deliberately',
-        body: 'Retries must stay bounded, and redirect state should reset safely for each attempt so one failed path cannot contaminate the next.',
-      },
-    ],
-    takeaway: 'Follow the data and state transitions until you find the earliest point where the failing and working paths diverge.',
-  },
-  {
-    id: 'aria2-download-lifecycle',
-    date: '2026-07-13',
-    displayDate: '13 Jul 2026',
-    title: 'Reliable Aria2 downloads are lifecycles, not RPC calls.',
-    summary: 'An Aria2 audit made one thing clear: a download needs its own stable identity across retries, events, async work, and UI state.',
-    readTime: '6 min read',
-    tags: ['Aria2', 'Concurrency', 'Rust'],
-    contextLabel: '12 lessons from a concurrency audit',
-    lessons: [
-      {
-        title: 'A GID is not a download identity',
-        body: 'A retry creates a new GID. Track the download with your own stable ID, mapped to the current GID and lifecycle epoch.',
-      },
-      {
-        title: 'Cancellation needs a generation',
-        body: 'A cancelled worker can wake after cancellation is cleared for a new attempt. Pair cancellation with a monotonically increasing generation or epoch.',
-      },
-      {
-        title: 'Revalidate every async result',
-        body: 'After an await, the world may have changed. Before applying a result, confirm that the operation still belongs to the current lifecycle.',
-      },
-      {
-        title: 'addUri only means accepted',
-        body: 'Aria2 returning from addUri means it accepted the job, not that it finished. Keep the permit, mapping, retry state, and UI lifecycle active until a terminal event.',
-      },
-      {
-        title: 'Events can beat registration',
-        body: 'Aria2 may emit an error or completion before Firelink stores the returned GID. Buffer early events and reconcile them atomically when registration finishes.',
-      },
-      {
-        title: 'Buffering and mapping need one lock',
-        body: 'The GID map and early-event buffer must share synchronization, or an event can slip between the “unknown GID” check and the registration drain.',
-        code: 'check: GID unknown → register + drain → event buffers',
-      },
-      {
-        title: 'Control operations are still concurrency',
-        body: 'Pause, resume, retry, refresh, and completion can issue contradictory RPCs when they overlap. A per-download mutex serializes one download without blocking others.',
-      },
-      {
-        title: 'Retry events must be idempotent',
-        body: 'Reconnects, polling, and Aria2 notifications can report the same failure more than once. Deduplicate retry workers by download ID and lifecycle.',
-      },
-      {
-        title: 'Permits have exactly-once ownership',
-        body: 'Every active Aria2 download owns one permit. Terminal paths release it once; stale paths release it zero times.',
-      },
-      {
-        title: 'UI state is concurrent state',
-        body: 'A delayed Downloading update can overwrite a newer Paused, Completed, or Failed state. Emit transitional UI states only after confirming the lifecycle is current.',
-      },
-      {
-        title: 'Old GIDs must lose authority',
-        body: 'A terminal event from a failed GID must not release a permit or complete the replacement GID’s lifecycle after a retry starts.',
-      },
-      {
-        title: 'Worst-case tests teach the system',
-        body: 'The valuable tests are the races: pause during addUri, resume during retry backoff, duplicate errors, completion during handoff, stale GIDs, and RPC failure before registration.',
+        heading: 'The pattern',
+        paragraphs: ['The strongest pattern is:'],
+        quotes: ['Investigate → map invariants and blast radius → consult narrowly → verify independently → fix root causes only → run targeted and broad tests → publish narrowly → verify the remote result.'],
       },
     ],
-    takeaway: 'Every async operation, event, retry, permit, and UI update should carry enough identity information to prove it still belongs to the current download lifecycle.',
   },
 ]
 
-const navigation = [
-  ['Work', '#work'],
-  ['About', '#about'],
-  ['Socials', '#socials'],
-  ['TIL', '#til'],
-  ['Contact', '#contact'],
+type NavigationItem = { name: string; href: string }
+
+const navigation: NavigationItem[] = [
+  { name: 'Work', href: '/#work' },
+  { name: 'About', href: '/#about' },
+  { name: 'Socials', href: '/#socials' },
+  { name: 'TIL', href: '/til' },
+  { name: 'Contact', href: '/#contact' },
 ]
+
+type Route =
+  | { type: 'home' }
+  | { type: 'til-index' }
+  | { type: 'til-post'; id: string }
+
+function getRoute(pathname: string): Route {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/'
+
+  if (normalizedPath === '/til') return { type: 'til-index' }
+  if (normalizedPath.startsWith('/til/')) {
+    return { type: 'til-post', id: decodeURIComponent(normalizedPath.slice('/til/'.length)) }
+  }
+
+  return { type: 'home' }
+}
 
 type Theme = 'light' | 'dark'
 
@@ -785,13 +758,192 @@ function ProjectVisual({ project, onPreview }: { project: Project; onPreview: ()
   )
 }
 
+type Navigate = (href: string) => void
+
+function TilCard({
+  tilPost,
+  index,
+  onNavigate,
+  variant = 'archive',
+}: {
+  tilPost: TilPost
+  index: number
+  onNavigate: Navigate
+  variant?: 'teaser' | 'archive'
+}) {
+  const href = `/til/${tilPost.id}`
+
+  return (
+    <article className={`til-card til-card-${variant}`} aria-labelledby={`til-card-title-${variant}-${tilPost.id}`}>
+      <div className="til-card-topline">
+        <span className="til-card-label"><BookOpen size={14} /> Note {String(index + 1).padStart(2, '0')}</span>
+        <time dateTime={tilPost.date}>{tilPost.displayDate}</time>
+      </div>
+      <h3 id={`til-card-title-${variant}-${tilPost.id}`}>{tilPost.title}</h3>
+      <p className="til-summary">{tilPost.summary}</p>
+      <div className="til-meta">
+        <span><Clock3 size={14} /> {tilPost.readTime}</span>
+        <ul aria-label={`${tilPost.title} topics`}>
+          {tilPost.tags.map((tag) => <li key={tag}>{tag}</li>)}
+        </ul>
+      </div>
+      <div className="til-card-footer">
+        <span>{tilPost.contextLabel}</span>
+        <a className="til-read-button" href={href} onClick={(event) => { event.preventDefault(); onNavigate(href) }}>
+          Read the note <ArrowUpRight size={16} />
+        </a>
+      </div>
+    </article>
+  )
+}
+
+function TilIndex({ onNavigate }: { onNavigate: Navigate }) {
+  const [query, setQuery] = useState('')
+  const [topic, setTopic] = useState('All')
+  const topics = useMemo(() => ['All', ...Array.from(new Set(tilPosts.flatMap((post) => post.tags))).sort()], [])
+  const filteredPosts = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    return tilPosts.filter((post) => {
+      const matchesTopic = topic === 'All' || post.tags.includes(topic)
+      if (!matchesTopic) return false
+      if (!normalizedQuery) return true
+
+      const searchableText = [
+        post.title,
+        post.summary,
+        post.tags.join(' '),
+        post.sections.map((section) => [
+          section.heading,
+          section.paragraphs.join(' '),
+          section.bullets?.join(' ') ?? '',
+          section.steps?.join(' ') ?? '',
+          section.code ?? '',
+          section.quotes?.join(' ') ?? '',
+          section.callouts?.map((callout) => `${callout.label} ${callout.text}`).join(' ') ?? '',
+        ].join(' ')).join(' '),
+      ].join(' ').toLowerCase()
+
+      return searchableText.includes(normalizedQuery)
+    })
+  }, [query, topic])
+
+  return (
+    <div className="til-page-shell">
+      <section className="til-page-intro section">
+        <div>
+          <p className="eyebrow"><span /> TIL · Today I learned</p>
+          <h1>Things I learn<br /><em>while building.</em></h1>
+          <p className="til-page-lede">Short, practical notes from the work behind the work — patterns, bugs, and decisions worth keeping close.</p>
+        </div>
+        <div className="til-page-index" aria-label={`${tilPosts.length} notes in the archive`}>
+          <span>Archive</span>
+          <strong>{tilPosts.length}</strong>
+          <span>notes</span>
+        </div>
+      </section>
+
+      <section className="til-browser section" aria-labelledby="til-archive-title">
+        <div className="til-browser-toolbar">
+          <div>
+            <p className="eyebrow"><span /> Notebook index</p>
+            <h2 id="til-archive-title">Browse the notes.</h2>
+          </div>
+          <label className="til-search">
+            <Search size={16} />
+            <span className="visually-hidden">Search TILs</span>
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notes" />
+          </label>
+        </div>
+
+        <div className="til-topic-row">
+          <div className="til-topics" aria-label="Filter TILs by topic">
+            {topics.map((item) => (
+              <button key={item} type="button" className={topic === item ? 'active' : ''} onClick={() => setTopic(item)}>
+                {item === 'All' ? 'All notes' : item}
+              </button>
+            ))}
+          </div>
+          <p className="til-results">Showing {filteredPosts.length} of {tilPosts.length}</p>
+        </div>
+
+        <div className="til-archive-list">
+          {filteredPosts.length > 0 ? filteredPosts.map((post, index) => (
+            <TilCard key={post.id} tilPost={post} index={index} onNavigate={onNavigate} />
+          )) : (
+            <div className="til-no-results">
+              <p className="eyebrow"><span /> No match</p>
+              <h3>That note is not in the notebook yet.</h3>
+              <button type="button" onClick={() => { setQuery(''); setTopic('All') }}>Clear filters</button>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function TilPostPage({ post, onNavigate }: { post: TilPost; onNavigate: Navigate }) {
+  return (
+    <div className="til-page-shell">
+      <section className="til-post-intro section">
+        <a className="text-link" href="/til" onClick={(event) => { event.preventDefault(); onNavigate('/til') }}><ArrowDownRight size={16} /> Back to all TILs</a>
+        <p className="eyebrow"><span /> {post.displayDate} · {post.readTime}</p>
+        <h1>{post.title}</h1>
+        <p className="til-post-summary">{post.summary}</p>
+        <ul className="til-dialog-tags" aria-label="TIL topics">
+          {post.tags.map((tag) => <li key={tag}>{tag}</li>)}
+        </ul>
+      </section>
+
+      <section className="til-article-shell section" aria-label="TIL article">
+        <article className="til-weblog-post">
+          <p className="til-article-kicker">Firelink · working notes</p>
+          {post.sections.map((section) => (
+            <section className="til-weblog-section" key={section.heading}>
+              <h2>{section.heading}</h2>
+              {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+              {section.bullets && (
+                <ul>
+                  {section.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}
+                </ul>
+              )}
+              {section.steps && (
+                <ol>
+                  {section.steps.map((step) => <li key={step}>{step}</li>)}
+                </ol>
+              )}
+              {section.code && <pre><code>{section.code}</code></pre>}
+              {section.quotes?.map((quote) => <blockquote key={quote}>{quote}</blockquote>)}
+              {section.callouts && (
+                <div className="til-callouts">
+                  {section.callouts.map((callout) => (
+                    <blockquote key={callout.label}>
+                      <span>{callout.label}</span>
+                      <p>{callout.text}</p>
+                    </blockquote>
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
+          <footer className="til-article-footer">
+            <span>Filed under</span>
+            <p>{post.tags.join(' · ')}</p>
+          </footer>
+        </article>
+      </section>
+    </div>
+  )
+}
+
 function App() {
   const [filter, setFilter] = useState<'All' | Project['category']>('All')
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
-  const [tilOpen, setTilOpen] = useState<TilPost | null>(null)
+  const [route, setRoute] = useState<Route>(() => getRoute(window.location.pathname))
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -816,21 +968,39 @@ function App() {
   }, [previewProject])
 
   useEffect(() => {
-    if (!tilOpen) return
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setTilOpen(null)
+    const onPopState = () => {
+      setRoute(getRoute(window.location.pathname))
+      setMenuOpen(false)
+      window.scrollTo({ top: 0, behavior: 'auto' })
     }
-    const previousOverflow = document.body.style.overflow
 
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', closeOnEscape)
+  useEffect(() => {
+    const title = route.type === 'home'
+      ? 'NimBold — Independent Developer'
+      : route.type === 'til-index'
+        ? 'TIL — NimBold'
+        : `${tilPosts.find((post) => post.id === route.id)?.title ?? 'TIL'} — NimBold`
+    document.title = title
+  }, [route])
+
+  useEffect(() => {
+    if (route.type !== 'home') {
+      window.scrollTo({ top: 0, behavior: 'auto' })
+      return
     }
-  }, [tilOpen])
+
+    window.requestAnimationFrame(() => {
+      if (window.location.hash) {
+        document.querySelector(window.location.hash)?.scrollIntoView({ behavior: 'smooth' })
+      } else {
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      }
+    })
+  }, [route])
 
   useEffect(() => {
     const root = document.documentElement
@@ -859,17 +1029,34 @@ function App() {
     }
   }
 
+  const navigate = (href: string) => {
+    const nextUrl = new URL(href, window.location.origin)
+    const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+
+    window.history.pushState({}, '', nextPath)
+    setRoute(getRoute(nextUrl.pathname))
+    setMenuOpen(false)
+    setPreviewProject(null)
+  }
+
+  const handleInternalNavigation = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith('/')) return
+    event.preventDefault()
+    navigate(href)
+  }
+
   const visibleProjects = filter === 'All' ? projects : projects.filter((project) => project.category === filter)
+  const selectedTilPost = route.type === 'til-post' ? tilPosts.find((post) => post.id === route.id) : null
 
   return (
-    <main>
+    <main className={route.type === 'home' ? undefined : 'til-route'}>
       <header className={`site-header ${scrolled ? 'is-scrolled' : ''}`}>
-        <a className="brand" href="#top" aria-label="NimBold home">N<span>°</span></a>
+        <a className="brand" href={route.type === 'home' ? '#top' : '/'} onClick={(event) => route.type !== 'home' && handleInternalNavigation(event, '/')} aria-label="NimBold home">N<span>°</span></a>
         <nav className="desktop-nav" aria-label="Main navigation">
-          {navigation.map(([name, href]) => <a key={name} href={href}>{name}</a>)}
+          {navigation.map(({ name, href }) => <a key={name} href={href} onClick={(event) => handleInternalNavigation(event, href)}>{name}</a>)}
         </nav>
         <div className="header-actions">
-          <a className="availability" href="#contact"><i /> Available for select work</a>
+          <a className="availability" href="/#contact" onClick={(event) => handleInternalNavigation(event, '/#contact')}><i /> Available for select work</a>
           <button
             className="site-theme-toggle"
             type="button"
@@ -886,10 +1073,12 @@ function App() {
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
         <div className={`mobile-menu ${menuOpen ? 'is-open' : ''}`}>
-          {navigation.map(([name, href]) => <a key={name} href={href} onClick={() => setMenuOpen(false)}>{name}</a>)}
+          {navigation.map(({ name, href }) => <a key={name} href={href} onClick={(event) => handleInternalNavigation(event, href)}>{name}</a>)}
         </div>
       </header>
 
+      {route.type === 'home' ? (
+        <>
       <section className="hero" id="top">
         <div className="hero-glow glow-one" />
         <div className="hero-copy reveal">
@@ -984,28 +1173,8 @@ function App() {
       <section className="til-section section" id="til">
         <div className="til-heading"><p className="eyebrow"><span /> TIL · Today I learned</p><h2>Small lessons.<br /><em>Kept close.</em></h2><p className="til-heading-note">Short, practical notes from the work behind the work.</p></div>
         <div className="til-feed">
-          {tilPosts.map((tilPost, index) => (
-            <article className="til-card" key={tilPost.id} aria-labelledby={`til-card-title-${tilPost.id}`}>
-              <div className="til-card-topline">
-                <span className="til-card-label"><BookOpen size={14} /> Note {String(index + 1).padStart(2, '0')}</span>
-                <time dateTime={tilPost.date}>{tilPost.displayDate}</time>
-              </div>
-              <h3 id={`til-card-title-${tilPost.id}`}>{tilPost.title}</h3>
-              <p className="til-summary">{tilPost.summary}</p>
-              <div className="til-meta">
-                <span><Clock3 size={14} /> {tilPost.readTime}</span>
-                <ul aria-label={`${tilPost.title} topics`}>
-                  {tilPost.tags.map((tag) => <li key={tag}>{tag}</li>)}
-                </ul>
-              </div>
-              <div className="til-card-footer">
-                <span>{tilPost.contextLabel}</span>
-                <button className="til-read-button" type="button" onClick={() => setTilOpen(tilPost)}>
-                  Read the note <ArrowUpRight size={16} />
-                </button>
-              </div>
-            </article>
-          ))}
+          <TilCard tilPost={tilPosts[0]} index={0} onNavigate={navigate} variant="teaser" />
+          <a className="til-browse-link" href="/til" onClick={(event) => handleInternalNavigation(event, '/til')}>Open the full notebook <ArrowUpRight size={17} /></a>
         </div>
       </section>
 
@@ -1019,11 +1188,21 @@ function App() {
           <a className="contact-email" href="mailto:nimbold.io@gmail.com"><Mail size={17} /> nimbold.io@gmail.com</a>
         </div>
       </section>
+        </>
+      ) : route.type === 'til-index' ? (
+        <TilIndex onNavigate={navigate} />
+      ) : selectedTilPost ? (
+        <TilPostPage post={selectedTilPost} onNavigate={navigate} />
+      ) : (
+        <TilIndex onNavigate={navigate} />
+      )}
 
       <footer>
-        <a className="brand" href="#top">N<span>°</span></a>
+        <a className="brand" href={route.type === 'home' ? '#top' : '/'} onClick={(event) => route.type !== 'home' && handleInternalNavigation(event, '/')}>
+          N<span>°</span>
+        </a>
         <p>© {new Date().getFullYear()} NimBold. Built with focus.</p>
-        <a href="#top">Back to top <ArrowUpRight size={14} /></a>
+        <a href={route.type === 'home' ? '#top' : '/'} onClick={(event) => route.type !== 'home' && handleInternalNavigation(event, '/')}>Back to top <ArrowUpRight size={14} /></a>
       </footer>
 
       {previewProject && (
@@ -1054,37 +1233,6 @@ function App() {
         </div>
       )}
 
-      {tilOpen && (
-        <div className="til-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setTilOpen(null) }}>
-          <article className="til-dialog" role="dialog" aria-modal="true" aria-labelledby="til-dialog-title" aria-describedby="til-dialog-summary">
-            <button className="preview-close til-close" type="button" onClick={() => setTilOpen(null)} aria-label="Close TIL note" autoFocus><X size={20} /></button>
-            <header className="til-dialog-header">
-              <p className="eyebrow"><span /> {tilOpen.displayDate} · {tilOpen.readTime}</p>
-              <h2 id="til-dialog-title">{tilOpen.title}</h2>
-              <p id="til-dialog-summary">{tilOpen.summary}</p>
-              <ul className="til-dialog-tags" aria-label="TIL topics">
-                {tilOpen.tags.map((tag) => <li key={tag}>{tag}</li>)}
-              </ul>
-            </header>
-            <div className="til-lessons">
-              {tilOpen.lessons.map((lesson, index) => (
-                <article className="til-lesson" key={lesson.title}>
-                  <span className="til-lesson-number">{String(index + 1).padStart(2, '0')}</span>
-                  <div>
-                    <h3>{lesson.title}</h3>
-                    <p>{lesson.body}</p>
-                    {lesson.code && <code>{lesson.code}</code>}
-                  </div>
-                </article>
-              ))}
-            </div>
-            <footer className="til-takeaway">
-              <span>Broad lesson</span>
-              <p>{tilOpen.takeaway}</p>
-            </footer>
-          </article>
-        </div>
-      )}
     </main>
   )
 }

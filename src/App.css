@@ -140,3 +140,105 @@ footer { min-height: 95px; padding:0 5.4vw; display:flex; align-items:center; ju
   .til-meta { align-items:flex-start; flex-direction:column; }
   .til-dialog-header h2 { font-size:42px; }
 }
+
+/* The TIL archive is a real page, while keeping the portfolio shell around it. */
+.til-route { background:var(--paper); }
+.til-page-shell { padding-top:82px; }
+.til-page-intro { min-height:560px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:8vw; background:var(--warm); border-bottom:1px solid var(--line); }
+.til-page-intro h1 { max-width:820px; margin:0 0 28px; font-size:clamp(58px,7.5vw,118px); }
+.til-page-intro h1 em { color:var(--orange); }
+.til-page-lede { max-width:500px; margin:0; color:#69645d; font-size:17px; line-height:1.65; }
+.til-page-index { min-width:150px; padding:22px 0 22px 27px; border-left:1px solid var(--line); color:var(--muted); font:10px 'DM Mono',monospace; letter-spacing:.1em; text-transform:uppercase; }
+.til-page-index strong { display:block; margin:10px 0 7px; color:var(--ink); font:600 clamp(56px,7vw,92px) 'DM Sans',sans-serif; letter-spacing:-.08em; line-height:.8; }
+.til-browser { background:#1f2430; color:#f4f1eb; }
+.til-browser .eyebrow,.til-post-reading .eyebrow { color:#b9bac0; }
+.til-browser h2 { margin:0; color:#f4f1eb; font-size:clamp(38px,4.8vw,68px); }
+.til-browser-toolbar { display:flex; align-items:flex-end; justify-content:space-between; gap:30px; margin-bottom:49px; }
+.til-search { width:min(320px,100%); display:flex; align-items:center; gap:11px; padding:13px 0; border-bottom:1px solid rgba(255,255,255,.35); color:#ff916f; }
+.til-search input { width:100%; border:0; outline:0; background:transparent; color:#fff; font:14px 'DM Sans',sans-serif; }
+.til-search input::placeholder { color:#969ba8; }
+.til-topic-row { display:flex; align-items:flex-start; justify-content:space-between; gap:25px; padding:19px 0 26px; border-top:1px solid rgba(255,255,255,.16); border-bottom:1px solid rgba(255,255,255,.16); }
+.til-topics { display:flex; flex-wrap:wrap; gap:7px; }
+.til-topics button { border:1px solid rgba(255,255,255,.17); padding:8px 10px; border-radius:999px; background:transparent; color:#bfc1c5; cursor:pointer; font:9px 'DM Mono',monospace; letter-spacing:.07em; text-transform:uppercase; transition:background .2s ease,border-color .2s ease,color .2s ease; }
+.til-topics button:hover,.til-topics button.active { border-color:#ff916f; background:#ff916f; color:#1b1a19; }
+.til-results { flex:0 0 auto; margin:8px 0 0; color:#969ba8; font:9px 'DM Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
+.til-archive-list { display:grid; gap:14px; max-width:1040px; margin:28px auto 0; }
+.til-card-archive { display:grid; grid-template-columns:145px minmax(0,1fr); column-gap:31px; padding:25px 29px 24px; background:rgba(255,255,255,.045); box-shadow:none; }
+.til-card-archive:hover { background:rgba(255,255,255,.075); }
+.til-card-archive .til-card-topline { display:block; grid-row:1 / span 4; }
+.til-card-archive .til-card-label { margin-bottom:17px; }
+.til-card-archive .til-card-topline time { display:block; }
+.til-card-archive h3 { grid-column:2; margin:0 0 12px; font-size:clamp(24px,3vw,38px); }
+.til-card-archive .til-summary { grid-column:2; margin-bottom:19px; }
+.til-card-archive .til-meta { grid-column:2; }
+.til-card-archive .til-card-footer { grid-column:2; }
+.til-browse-link { display:inline-flex; align-items:center; gap:8px; width:fit-content; margin:3px 0 0 auto; padding-bottom:5px; border-bottom:1px solid rgba(255,255,255,.5); color:#fff; font-size:13px; font-weight:600; transition:color .2s ease,border-color .2s ease,transform .2s ease; }
+.til-browse-link:hover { border-color:#ff916f; color:#ff916f; transform:translateX(3px); }
+.til-no-results { padding:48px 0; border-bottom:1px solid rgba(255,255,255,.16); }
+.til-no-results h3 { margin:0 0 19px; font-size:28px; letter-spacing:-.05em; }
+.til-no-results button { border:0; border-bottom:1px solid currentColor; padding:0 0 4px; background:transparent; color:#ff916f; cursor:pointer; font-size:13px; }
+.til-post-intro { padding-top:121px; padding-bottom:92px; background:var(--warm); border-bottom:1px solid var(--line); }
+.til-post-intro .text-link { margin-bottom:74px; }
+.til-post-intro h1 { max-width:920px; margin:0 0 25px; font-size:clamp(48px,6.2vw,88px); line-height:1.02; }
+.til-post-summary { max-width:690px; margin:0 0 25px; color:#69645d; font-size:17px; line-height:1.65; }
+.til-post-intro .til-dialog-tags { margin:0; }
+.til-post-intro .til-dialog-tags li { color:var(--ink); background:rgba(27,26,25,.07); }
+.til-article-shell { padding-top:84px; padding-bottom:122px; background:var(--paper); }
+.til-weblog-post { width:min(100%,760px); margin:0 auto; }
+.til-article-kicker { margin:0 0 46px; color:var(--orange); font:9px 'DM Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }
+.til-weblog-section + .til-weblog-section { margin-top:58px; }
+.til-weblog-section h2 { margin:0 0 21px; color:var(--ink); font-size:clamp(26px,3vw,37px); line-height:1.08; letter-spacing:-.055em; }
+.til-weblog-section p,.til-weblog-section li { color:#55514b; font-size:16px; line-height:1.78; }
+.til-weblog-section p { margin:0 0 20px; }
+.til-weblog-section ul,.til-weblog-section ol { margin:0 0 24px; padding-left:25px; }
+.til-weblog-section li + li { margin-top:7px; }
+.til-weblog-section ol { padding-left:28px; }
+.til-weblog-section pre { margin:29px 0 6px; padding:24px 25px; overflow:auto; border-left:3px solid var(--orange); background:#1f2430; color:#f4f1eb; box-shadow:0 14px 30px rgba(31,36,48,.13); }
+.til-weblog-section code { font:13px/1.7 'DM Mono',monospace; white-space:pre; }
+.til-weblog-section blockquote { margin:21px 0; padding:16px 22px; border-left:2px solid var(--orange); background:rgba(230,225,215,.62); color:var(--ink); font-size:19px; line-height:1.5; letter-spacing:-.025em; }
+.til-callouts { display:grid; gap:16px; margin-top:29px; }
+.til-callouts blockquote { margin:0; padding:19px 22px; background:rgba(230,225,215,.48); }
+.til-callouts blockquote > span { display:block; margin-bottom:9px; color:var(--orange); font:9px 'DM Mono',monospace; letter-spacing:.11em; text-transform:uppercase; }
+.til-callouts blockquote p { margin:0; color:var(--ink); font-size:15px; line-height:1.68; letter-spacing:0; }
+.til-article-footer { display:flex; align-items:baseline; gap:15px; margin-top:73px; padding-top:22px; border-top:1px solid var(--line); }
+.til-article-footer span { flex:0 0 auto; color:var(--orange); font:9px 'DM Mono',monospace; letter-spacing:.11em; text-transform:uppercase; }
+.til-article-footer p { margin:0; color:var(--muted); font:10px 'DM Mono',monospace; letter-spacing:.05em; text-transform:uppercase; }
+.visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+[data-theme='dark'] .til-page-intro,[data-theme='dark'] .til-post-intro { background:#1a1f23; }
+[data-theme='dark'] .til-page-lede,[data-theme='dark'] .til-post-summary { color:#b4b5b3; }
+[data-theme='dark'] .til-page-index strong { color:var(--ink); }
+[data-theme='dark'] .til-browser,[data-theme='dark'] .til-article-shell { background:#151a20; }
+[data-theme='dark'] .til-weblog-section p,[data-theme='dark'] .til-weblog-section li { color:#c7c9c7; }
+[data-theme='dark'] .til-weblog-section blockquote { background:rgba(255,255,255,.06); color:#f3f0e9; }
+[data-theme='dark'] .til-callouts blockquote p { color:#f3f0e9; }
+
+@media (max-width:800px) {
+  .til-page-shell { padding-top:68px; }
+  .til-page-intro { min-height:600px; display:block; padding-top:104px; }
+  .til-page-index { width:fit-content; min-width:0; margin-top:56px; padding:18px 26px 18px 0; border-top:1px solid var(--line); border-left:0; }
+  .til-page-index strong { display:inline-block; margin:8px 10px 0 0; font-size:65px; }
+  .til-browser-toolbar { display:block; margin-bottom:35px; }
+  .til-search { margin-top:31px; }
+  .til-topic-row { display:block; }
+  .til-results { margin-top:19px; }
+  .til-card-archive { display:block; padding:24px 23px 22px; }
+  .til-card-archive .til-card-topline { display:flex; }
+  .til-card-archive h3 { margin-top:24px; }
+  .til-post-intro { padding-top:103px; padding-bottom:74px; }
+  .til-post-intro .text-link { margin-bottom:62px; }
+  .til-article-shell { padding-top:63px; padding-bottom:84px; }
+  .til-weblog-section + .til-weblog-section { margin-top:46px; }
+  .til-weblog-section p,.til-weblog-section li { font-size:15px; line-height:1.72; }
+  .til-weblog-section pre { padding:19px 18px; }
+  .til-weblog-section code { font-size:11px; }
+  .til-callouts blockquote { padding:17px 18px; }
+  .til-callouts blockquote p { font-size:14px; line-height:1.62; }
+  .til-article-footer { align-items:flex-start; flex-direction:column; gap:9px; margin-top:55px; }
+}
+
+@media (max-width:420px) {
+  .til-page-intro h1 { font-size:50px; }
+  .til-post-intro h1 { font-size:43px; }
+  .til-browser h2 { font-size:39px; }
+  .til-weblog-section blockquote { padding:14px 17px; font-size:17px; }
+}
