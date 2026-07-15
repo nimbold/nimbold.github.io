@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
-  BookOpen,
   Braces,
   Code2,
   Clock3,
@@ -188,7 +187,61 @@ const tilPosts: TilPost[] = [
       },
     ],
   },
+  {
+    id: 'ready-is-a-safety-boundary',
+    date: '2026-07-16',
+    displayDate: '16 Jul 2026',
+    title: 'TIL: “Ready” is a safety boundary, not a loading flag.',
+    summary: 'A Keychain prompt race taught me that frontend readiness is a contract between the backend, UI, browser extension, clipboard, and operating system.',
+    readTime: '3 min read',
+    tags: ['Firelink', 'Backend', 'Frontend', 'Async Systems'],
+    contextLabel: 'Firelink · lifecycle design',
+    sections: [
+      {
+        heading: 'The real bug',
+        paragraphs: [
+          'The bug looked like a modal-rendering problem: macOS showed its Keychain prompt before Firelink showed its explanation.',
+          'The actual issue was that several independent systems could trigger actions while startup was still in progress.',
+        ],
+        bullets: [
+          'React being mounted does not mean the application is ready.',
+          'Async callbacks may still use stale state.',
+          'Operating-system prompts need an explicit consent boundary.',
+          'Backend events must not bypass frontend readiness.',
+        ],
+      },
+      {
+        heading: 'The fix',
+        paragraphs: ['We defined readiness as a real cross-layer contract:'],
+        code: 'frontendMayAcceptInput = coreReady && !showKeychainModal',
+        callouts: [
+          { label: 'Backend', text: 'Buffer deep links and return retryable responses for extension requests while blocked.' },
+          { label: 'Frontend', text: 'Check current state when events arrive, not only captured React state.' },
+          { label: 'Lifecycle', text: 'Serialize readiness changes so cleanup cannot race initialization.' },
+          { label: 'Identity', text: 'Use the build revision, not only the semantic version, for consent migrations.' },
+        ],
+      },
+      {
+        heading: 'The programmer’s checklist',
+        paragraphs: ['When debugging a similar issue:'],
+        steps: [
+          'List every event producer and consumer.',
+          'Define the state required before each side effect is allowed.',
+          'Test events before readiness, during modals, after cleanup, and after retries.',
+          'Make stale, duplicate, and late events harmless.',
+          'Verify new changes do not bypass previously hardened guards.',
+        ],
+      },
+      {
+        heading: 'The pattern',
+        paragraphs: ['The lesson is simple:'],
+        quotes: ['Trace the event timeline → define the lifecycle contract → gate side effects → test the worst race.'],
+      },
+    ],
+  },
 ]
+
+const orderedTilPosts = [...tilPosts].sort((left, right) => right.date.localeCompare(left.date))
 
 type NavigationItem = { name: string; href: string }
 
@@ -774,9 +827,14 @@ function TilCard({
   const href = `/til/${tilPost.id}`
 
   return (
-    <article className={`til-card til-card-${variant}`} aria-labelledby={`til-card-title-${variant}-${tilPost.id}`}>
+    <a
+      className={`til-card til-card-${variant}`}
+      href={href}
+      onClick={(event) => { event.preventDefault(); onNavigate(href) }}
+      aria-labelledby={`til-card-title-${variant}-${tilPost.id}`}
+    >
       <div className="til-card-topline">
-        <span className="til-card-label"><BookOpen size={14} /> Note {String(index + 1).padStart(2, '0')}</span>
+        <span className="til-card-label">Note {String(index + 1).padStart(2, '0')}</span>
         <time dateTime={tilPost.date}>{tilPost.displayDate}</time>
       </div>
       <h3 id={`til-card-title-${variant}-${tilPost.id}`}>{tilPost.title}</h3>
@@ -789,11 +847,8 @@ function TilCard({
       </div>
       <div className="til-card-footer">
         <span>{tilPost.contextLabel}</span>
-        <a className="til-read-button" href={href} onClick={(event) => { event.preventDefault(); onNavigate(href) }}>
-          Read the note <ArrowUpRight size={16} />
-        </a>
       </div>
-    </article>
+    </a>
   )
 }
 
@@ -804,7 +859,7 @@ function TilIndex({ onNavigate }: { onNavigate: Navigate }) {
   const filteredPosts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
 
-    return tilPosts.filter((post) => {
+    return orderedTilPosts.filter((post) => {
       const matchesTopic = topic === 'All' || post.tags.includes(topic)
       if (!matchesTopic) return false
       if (!normalizedQuery) return true
@@ -918,10 +973,10 @@ function TilPostPage({ post, onNavigate }: { post: TilPost; onNavigate: Navigate
               {section.callouts && (
                 <div className="til-callouts">
                   {section.callouts.map((callout) => (
-                    <blockquote key={callout.label}>
+                    <div className="til-callout" key={callout.label}>
                       <span>{callout.label}</span>
                       <p>{callout.text}</p>
-                    </blockquote>
+                    </div>
                   ))}
                 </div>
               )}
@@ -1173,7 +1228,7 @@ function App() {
       <section className="til-section section" id="til">
         <div className="til-heading"><p className="eyebrow"><span /> TIL · Today I learned</p><h2>Small lessons.<br /><em>Kept close.</em></h2><p className="til-heading-note">Short, practical notes from the work behind the work.</p></div>
         <div className="til-feed">
-          <TilCard tilPost={tilPosts[0]} index={0} onNavigate={navigate} variant="teaser" />
+          <TilCard tilPost={orderedTilPosts[0]} index={0} onNavigate={navigate} variant="teaser" />
           <a className="til-browse-link" href="/til" onClick={(event) => handleInternalNavigation(event, '/til')}>Open the full notebook <ArrowUpRight size={17} /></a>
         </div>
       </section>
